@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VOD Review</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0f0f0f;
+    --card: #1a1a1a;
+    --border: #2a2a2a;
+    --text: #f0f0f0;
+    --muted: #666;
+    --accent: #7c6cf8;
+    --accent-hover: #9d92ff;
+    --green: #4ade80;
+    --red: #f87171;
+  }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ── SETUP ── */
+  #setup {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .setup-box {
+    width: 100%;
+    max-width: 520px;
+  }
+
+  .setup-box h1 {
+    font-size: 28px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .setup-box p {
+    color: var(--muted);
+    font-size: 14px;
+    margin-bottom: 32px;
+  }
+
+  .pov-block {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+
+  .pov-block-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .pov-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .pov-block-header span {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+  }
+
+  .pov-block-header .optional {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--muted);
+    opacity: 0.5;
+  }
+
+  .input-row {
+    display: grid;
+    grid-template-columns: 130px 1fr;
+    gap: 8px;
+  }
+
+  input {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 10px 12px;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.15s;
+    width: 100%;
+  }
+
+  input:focus { border-color: var(--accent); }
+  input::placeholder { color: var(--muted); }
+
+  .btn-start {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 14px;
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+    margin-top: 20px;
+    transition: background 0.15s;
+  }
+
+  .btn-start:hover { background: var(--accent-hover); }
+
+  .error {
+    color: var(--red);
+    font-size: 12px;
+    margin-top: 10px;
+    display: none;
+    text-align: center;
+  }
+
+  /* ── PLAYER ── */
+  #player {
+    display: none;
+    flex-direction: column;
+    height: 100vh;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--card);
+    flex-shrink: 0;
+  }
+
+  .header-title {
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .header-session {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .header-right {
+    margin-left: auto;
+    display: flex;
+    gap: 8px;
+  }
+
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 6px 14px;
+    border-radius: 7px;
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .btn-ghost:hover { border-color: var(--text); color: var(--text); }
+
+  /* Body */
+  .body {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* Left: main player */
+  .left {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    border-right: 1px solid var(--border);
+  }
+
+  .main-video {
+    flex: 1;
+    background: #000;
+    position: relative;
+    min-height: 0;
+  }
+
+  #main-player-div {
+    width: 100%;
+    height: 100%;
+  }
+
+  #main-player-div iframe {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .now-watching {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(4px);
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .now-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* Controls */
+  .controls {
+    background: var(--card);
+    border-top: 1px solid var(--border);
+    padding: 12px 16px;
+    flex-shrink: 0;
+  }
+
+  .progress-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .time {
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    min-width: 90px;
+  }
+
+  .progress {
+    flex: 1;
+    height: 4px;
+    background: var(--border);
+    border-radius: 4px;
+    cursor: pointer;
+    position: relative;
+  }
+
+  .progress:hover { height: 6px; margin-top: -1px; }
+
+  .progress-bar {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 4px;
+    width: 0%;
+    pointer-events: none;
+  }
+
+  .btn-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .ctrl {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.1s;
+    flex-shrink: 0;
+  }
+
+  .ctrl:hover { border-color: var(--accent); color: var(--accent); }
+  .ctrl.playing { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  .speed-wrap {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 4px;
+  }
+
+  .speed-label {
+    font-size: 12px;
+    color: var(--muted);
+    min-width: 28px;
+    text-align: center;
+  }
+
+  /* POV switcher */
+  .pov-switch {
+    display: flex;
+    gap: 6px;
+    margin-left: auto;
+    align-items: center;
+  }
+
+  .pov-switch-label {
+    font-size: 11px;
+    color: var(--muted);
+    margin-right: 2px;
+  }
+
+  .pov-tab {
+    padding: 6px 14px;
+    border-radius: 7px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+
+  .pov-tab:hover { color: var(--text); border-color: var(--text); }
+  .pov-tab.active { color: #fff; border-color: currentColor; }
+
+  /* Right sidebar */
+  .right {
+    width: 260px;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    overflow-y: auto;
+    background: var(--card);
+  }
+
+  .sidebar-section {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 12px;
+  }
+
+  /* Mini POV cards */
+  .mini-card {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+    background: var(--bg);
+  }
+
+  .mini-card:hover { border-color: #555; }
+  .mini-card.active { border-color: var(--accent); }
+
+  .mini-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 10px;
+    background: rgba(255,255,255,0.03);
+  }
+
+  .mini-name {
+    font-size: 12px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .mini-time {
+    font-size: 11px;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mini-video {
+    width: 100%;
+    aspect-ratio: 16/9;
+    background: #000;
+    pointer-events: none;
+  }
+
+  .mini-video iframe { width: 100%; height: 100%; display: block; }
+
+  /* Offset */
+  .offset-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .offset-name {
+    font-size: 12px;
+    color: var(--muted);
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .offset-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .offset-btn {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.1s;
+    user-select: none;
+  }
+
+  .offset-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .offset-val {
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+    min-width: 32px;
+    text-align: center;
+  }
+
+  .offset-hint {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-top: 4px;
+  }
+
+  /* Notes */
+  .notes-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    min-height: 0;
+  }
+
+  textarea {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 10px;
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    line-height: 1.6;
+    resize: none;
+    outline: none;
+    min-height: 100px;
+    transition: border-color 0.15s;
+  }
+
+  textarea:focus { border-color: var(--accent); }
+  textarea::placeholder { color: var(--muted); }
+
+  .btn-timestamp {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 7px;
+    padding: 7px;
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    cursor: pointer;
+    margin-top: 6px;
+    width: 100%;
+    transition: all 0.15s;
+  }
+
+  .btn-timestamp:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Keyboard hints */
+  .hints {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .hint {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .key {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-size: 10px;
+    color: var(--accent);
+    white-space: nowrap;
+  }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(50px);
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 12px;
+    z-index: 999;
+    transition: transform 0.25s;
+    pointer-events: none;
+  }
+
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<!-- SETUP -->
+<div id="setup">
+  <div class="setup-box">
+    <h1>VOD Review</h1>
+    <p>Paste YouTube links for each player's POV to start a synchronized review session.</p>
+
+    <div class="pov-block">
+      <div class="pov-block-header">
+        <div class="pov-dot" style="background:#7c6cf8"></div>
+        <span>Player 1</span>
+      </div>
+      <div class="input-row">
+        <input id="name1" type="text" placeholder="Name (e.g. Rauder)">
+        <input id="url1" type="text" placeholder="YouTube link">
+      </div>
+    </div>
+
+    <div class="pov-block">
+      <div class="pov-block-header">
+        <div class="pov-dot" style="background:#4ade80"></div>
+        <span>Player 2</span>
+      </div>
+      <div class="input-row">
+        <input id="name2" type="text" placeholder="Name">
+        <input id="url2" type="text" placeholder="YouTube link">
+      </div>
+    </div>
+
+    <div class="pov-block">
+      <div class="pov-block-header">
+        <div class="pov-dot" style="background:#f87171"></div>
+        <span>Player 3</span>
+        <span class="optional">optional</span>
+      </div>
+      <div class="input-row">
+        <input id="name3" type="text" placeholder="Name">
+        <input id="url3" type="text" placeholder="YouTube link">
+      </div>
+    </div>
+
+    <div id="setup-error" class="error">Please fill in at least 2 YouTube links</div>
+    <button class="btn-start" onclick="startSession()">Start Review Session</button>
+  </div>
+</div>
+
+<!-- PLAYER -->
+<div id="player">
+  <div class="header">
+    <div class="header-title">VOD Review</div>
+    <div class="header-session" id="header-session"></div>
+    <div class="header-right">
+      <button class="btn-ghost" onclick="exportNotes()">Export Notes</button>
+      <button class="btn-ghost" onclick="backToSetup()">New Session</button>
+    </div>
+  </div>
+
+  <div class="body">
+    <div class="left">
+      <div class="main-video">
+        <div id="main-player-div"></div>
+        <div class="now-watching" id="now-watching">
+          <div class="now-dot" id="now-dot"></div>
+          <span id="now-name"></span>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div class="progress-row">
+          <div class="time" id="time-disp">0:00 / 0:00</div>
+          <div class="progress" id="prog-track" onclick="seekClick(event)">
+            <div class="progress-bar" id="prog-bar"></div>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="ctrl" onclick="seekRel(-10)" title="-10s">⏪</button>
+          <button class="ctrl" id="play-btn" onclick="togglePlay()">▶</button>
+          <button class="ctrl" onclick="seekRel(10)" title="+10s">⏩</button>
+          <div class="speed-wrap">
+            <button class="ctrl" onclick="changeSpeed(-0.25)" style="width:28px;height:28px;font-size:12px">−</button>
+            <div class="speed-label" id="speed-lbl">1×</div>
+            <button class="ctrl" onclick="changeSpeed(0.25)" style="width:28px;height:28px;font-size:12px">+</button>
+          </div>
+          <div class="pov-switch">
+            <span class="pov-switch-label">Switch POV:</span>
+            <div id="pov-tabs"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="right">
+      <div class="sidebar-section">
+        <div class="sidebar-label">All POVs</div>
+        <div id="mini-povs"></div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-label">Sync Offset</div>
+        <div id="offset-list"></div>
+        <div class="offset-hint">If videos are out of sync, adjust the offset.<br>+5 = this video starts 5s later.</div>
+      </div>
+
+      <div class="notes-wrap">
+        <div class="sidebar-label">Notes</div>
+        <textarea id="notes" placeholder="Write your analysis here...&#10;&#10;Use the button below to insert a timestamp at the current time."></textarea>
+        <button class="btn-timestamp" onclick="insertTimestamp()">+ Insert Timestamp</button>
+      </div>
+
+      <div class="hints">
+        <div class="hint"><span class="key">Space</span> play / pause</div>
+        <div class="hint"><span class="key">1 2 3</span> switch POV</div>
+        <div class="hint"><span class="key">← →</span> seek 5s</div>
+        <div class="hint"><span class="key">T</span> timestamp</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const COLORS = ['#7c6cf8','#4ade80','#f87171'];
+
+const S = {
+  povs: [],
+  active: 0,
+  playing: false,
+  speed: 1,
+  duration: 0,
+  main: null,
+  minis: [],
+  ready: [],
+  timer: null
+};
+
+// YT API
+let ytReady = false;
+window.onYouTubeIframeAPIReady = () => { ytReady = true; };
+const s = document.createElement('script');
+s.src = 'https://www.youtube.com/iframe_api';
+document.head.appendChild(s);
+
+function waitYT(cb) {
+  if (ytReady && window.YT && YT.Player) cb();
+  else setTimeout(() => waitYT(cb), 100);
+}
+
+function getVideoId(url) {
+  if (!url) return null;
+  const m = url.match(/(?:v=|\/embed\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  return m ? m[1] : (url.match(/^[a-zA-Z0-9_-]{11}$/) ? url : null);
+}
+
+function startSession() {
+  const rows = [
+    { name: document.getElementById('name1').value || 'Player 1', url: document.getElementById('url1').value },
+    { name: document.getElementById('name2').value || 'Player 2', url: document.getElementById('url2').value },
+    { name: document.getElementById('name3').value || 'Player 3', url: document.getElementById('url3').value },
+  ];
+  const valid = rows.filter(r => getVideoId(r.url));
+  if (valid.length < 2) { document.getElementById('setup-error').style.display = 'block'; return; }
+
+  S.povs = valid.map((r, i) => ({ name: r.name, vid: getVideoId(r.url), offset: 0, color: COLORS[i] }));
+  S.active = 0;
+  S.ready = new Array(S.povs.length).fill(false);
+  S.minis = [];
+
+  document.getElementById('setup').style.display = 'none';
+  document.getElementById('player').style.display = 'flex';
+  buildPlayerUI();
+  waitYT(initPlayers);
+}
+
+function buildPlayerUI() {
+  // header
+  document.getElementById('header-session').textContent = S.povs.map(p => p.name).join(' · ');
+
+  // main player
+  document.getElementById('main-player-div').innerHTML = '<div id="yt-main"></div>';
+
+  // POV tabs
+  const tabs = document.getElementById('pov-tabs');
+  tabs.style.display = 'flex';
+  tabs.style.gap = '6px';
+  tabs.innerHTML = S.povs.map((p, i) => `
+    <button class="pov-tab ${i===0?'active':''}" id="tab-${i}" style="${i===0?'border-color:'+p.color+';color:'+p.color:'color:var(--muted)'}" onclick="switchPov(${i})">
+      ${p.name}
+    </button>`).join('');
+
+  // Now watching
+  document.getElementById('now-dot').style.background = S.povs[0].color;
+  document.getElementById('now-name').textContent = S.povs[0].name;
+
+  // Mini POVs
+  const mp = document.getElementById('mini-povs');
+  mp.innerHTML = S.povs.map((p, i) => `
+    <div class="mini-card ${i===0?'active':''}" id="mini-card-${i}" onclick="switchPov(${i})">
+      <div class="mini-card-top">
+        <div class="mini-name">
+          <div style="width:8px;height:8px;border-radius:50%;background:${p.color};flex-shrink:0"></div>
+          ${p.name}
+        </div>
+        <div class="mini-time" id="mini-t-${i}">0:00</div>
+      </div>
+      <div class="mini-video"><div id="yt-mini-${i}"></div></div>
+    </div>`).join('');
+
+  // Offset
+  document.getElementById('offset-list').innerHTML = S.povs.map((p, i) => `
+    <div class="offset-item">
+      <div class="offset-name">
+        <div style="width:8px;height:8px;border-radius:50%;background:${p.color};flex-shrink:0"></div>
+        ${p.name}
+      </div>
+      <div class="offset-controls">
+        <div class="offset-btn" onclick="adjOffset(${i},-1)">−</div>
+        <div class="offset-val" id="off-${i}">0s</div>
+        <div class="offset-btn" onclick="adjOffset(${i},1)">+</div>
+      </div>
+    </div>`).join('');
+}
+
+function adjOffset(i, d) {
+  S.povs[i].offset += d;
+  document.getElementById(`off-${i}`).textContent = (S.povs[i].offset > 0 ? '+' : '') + S.povs[i].offset + 's';
+  toast(`${S.povs[i].name}: offset ${S.povs[i].offset > 0 ? '+' : ''}${S.povs[i].offset}s`);
+}
+
+function initPlayers() {
+  S.main = new YT.Player('yt-main', {
+    videoId: S.povs[0].vid,
+    playerVars: { controls: 0, disablekb: 1, rel: 0, modestbranding: 1 },
+    events: {
+      onReady: e => { S.main = e.target; markReady(0); },
+      onStateChange: e => {
+        if (e.data === YT.PlayerState.PLAYING) { S.playing = true; setPlayBtn(true); }
+        else if (e.data === YT.PlayerState.PAUSED || e.data === YT.PlayerState.ENDED) { S.playing = false; setPlayBtn(false); }
+      }
+    }
+  });
+
+  S.povs.forEach((p, i) => {
+    new YT.Player(`yt-mini-${i}`, {
+      videoId: p.vid,
+      playerVars: { controls: 0, disablekb: 1, rel: 0, modestbranding: 1, mute: 1 },
+      events: {
+        onReady: e => {
+          S.minis[i] = e.target;
+          e.target.mute();
+          if (i !== 0) markReady(i);
+        }
+      }
+    });
+  });
+}
+
+function markReady(i) {
+  S.ready[i] = true;
+  if (S.ready.every(Boolean)) {
+    clearInterval(S.timer);
+    S.timer = setInterval(tick, 500);
+  }
+}
+
+function tick() {
+  if (!S.main) return;
+  try {
+    const t = S.main.getCurrentTime() || 0;
+    const dur = S.main.getDuration() || 0;
+    S.duration = dur;
+    document.getElementById('prog-bar').style.width = dur > 0 ? (t/dur*100)+'%' : '0%';
+    document.getElementById('time-disp').textContent = fmt(t) + ' / ' + fmt(dur);
+    S.minis.forEach((m, i) => {
+      if (!m) return;
+      try {
+        const mt = m.getCurrentTime() || 0;
+        const el = document.getElementById(`mini-t-${i}`);
+        if (el) el.textContent = fmt(mt);
+        const exp = t + S.povs[i].offset;
+        if (Math.abs(mt - exp) > 1.5) m.seekTo(Math.max(0, exp), true);
+        if (S.playing && m.getPlayerState() !== 1) m.playVideo();
+        else if (!S.playing && m.getPlayerState() === 1) m.pauseVideo();
+      } catch(e){}
+    });
+  } catch(e){}
+}
+
+function togglePlay() {
+  if (!S.main) return;
+  if (S.playing) {
+    S.main.pauseVideo();
+    S.minis.forEach(m => { try{m.pauseVideo()}catch(e){} });
+  } else {
+    S.main.playVideo();
+    S.minis.forEach(m => { try{m.playVideo()}catch(e){} });
+  }
+}
+
+function setPlayBtn(playing) {
+  const btn = document.getElementById('play-btn');
+  btn.textContent = playing ? '⏸' : '▶';
+  btn.classList.toggle('playing', playing);
+}
+
+function seekRel(s) {
+  if (!S.main) return;
+  const t = Math.max(0, (S.main.getCurrentTime()||0) + s);
+  S.main.seekTo(t, true);
+  S.minis.forEach((m, i) => { try{ m.seekTo(Math.max(0, t + S.povs[i].offset), true); }catch(e){} });
+}
+
+function seekClick(e) {
+  if (!S.main || !S.duration) return;
+  const r = e.currentTarget.getBoundingClientRect();
+  const t = ((e.clientX - r.left) / r.width) * S.duration;
+  S.main.seekTo(t, true);
+  S.minis.forEach((m, i) => { try{ m.seekTo(Math.max(0, t + S.povs[i].offset), true); }catch(e){} });
+}
+
+function changeSpeed(d) {
+  S.speed = Math.max(0.25, Math.min(2, Math.round((S.speed + d) * 4) / 4));
+  try { S.main.setPlaybackRate(S.speed); } catch(e){}
+  document.getElementById('speed-lbl').textContent = S.speed + '×';
+}
+
+function switchPov(idx) {
+  if (idx >= S.povs.length) return;
+  const t = S.main ? (S.main.getCurrentTime() || 0) : 0;
+  const newT = t + S.povs[idx].offset;
+  const wasPlaying = S.playing;
+
+  try {
+    S.main.loadVideoById({ videoId: S.povs[idx].vid, startSeconds: Math.max(0, newT) });
+    S.main.setPlaybackRate(S.speed);
+    if (!wasPlaying) setTimeout(() => { try{S.main.pauseVideo()}catch(e){} }, 800);
+  } catch(e){}
+
+  S.active = idx;
+
+  // update now-watching
+  document.getElementById('now-dot').style.background = S.povs[idx].color;
+  document.getElementById('now-name').textContent = S.povs[idx].name;
+
+  // update tabs
+  S.povs.forEach((p, i) => {
+    const tab = document.getElementById(`tab-${i}`);
+    if (tab) {
+      tab.classList.toggle('active', i === idx);
+      tab.style.borderColor = i === idx ? p.color : 'var(--border)';
+      tab.style.color = i === idx ? p.color : 'var(--muted)';
+    }
+  });
+
+  // update mini cards
+  document.querySelectorAll('.mini-card').forEach((el, i) => {
+    el.classList.toggle('active', i === idx);
+    el.style.borderColor = i === idx ? S.povs[i].color : 'var(--border)';
+  });
+}
+
+function insertTimestamp() {
+  const t = S.main ? (S.main.getCurrentTime() || 0) : 0;
+  const ta = document.getElementById('notes');
+  const ts = `[${fmt(t)} | ${S.povs[S.active].name}] `;
+  const pos = ta.selectionStart;
+  ta.value = ta.value.slice(0, pos) + ts + ta.value.slice(pos);
+  ta.selectionStart = ta.selectionEnd = pos + ts.length;
+  ta.focus();
+}
+
+function exportNotes() {
+  const notes = document.getElementById('notes').value;
+  const lines = [
+    'VOD Review Session',
+    '==================',
+    '',
+    'Players:',
+    ...S.povs.map(p => `  ${p.name}: https://youtu.be/${p.vid} (offset: ${p.offset}s)`),
+    '',
+    '==================',
+    'Notes:',
+    '',
+    notes
+  ].join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([lines], {type:'text/plain'}));
+  a.download = 'vod-review-notes.txt';
+  a.click();
+  toast('Notes exported');
+}
+
+function backToSetup() {
+  clearInterval(S.timer);
+  [S.main, ...S.minis].forEach(p => { try{p.destroy()}catch(e){} });
+  S.main = null; S.minis = [];
+  document.getElementById('player').style.display = 'none';
+  document.getElementById('setup').style.display = 'flex';
+}
+
+function fmt(s) {
+  if (!s || isNaN(s)) return '0:00';
+  return Math.floor(s/60) + ':' + String(Math.floor(s%60)).padStart(2,'0');
+}
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+document.addEventListener('keydown', e => {
+  if (document.getElementById('player').style.display === 'none') return;
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.key === ' ') { e.preventDefault(); togglePlay(); }
+  else if (e.key === 'ArrowLeft') seekRel(-5);
+  else if (e.key === 'ArrowRight') seekRel(5);
+  else if (e.key === '1') switchPov(0);
+  else if (e.key === '2') switchPov(1);
+  else if (e.key === '3') switchPov(2);
+  else if (e.key === 't' || e.key === 'T') insertTimestamp();
+});
+</script>
+</body>
+</html>
