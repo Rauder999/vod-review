@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rewind — VOD Review</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+
+:root {
+  --bg:       #0c0c0e;
+  --surface:  #131316;
+  --elevated: #1c1c21;
+  --border:   rgba(255,255,255,0.07);
+  --border2:  rgba(255,255,255,0.12);
+  --text:     #f2f2f5;
+  --sub:      #8888a0;
+  --dim:      #44445a;
+  --c1: #6d9cf8;
+  --c2: #5ecfa0;
+  --c3: #f87a6d;
+  --radius: 10px;
+  --radius-sm: 6px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar { width: 3px; height: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--dim); border-radius: 2px; }
+
+/* ─── SETUP ─── */
+#setup {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+  background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(109,156,248,0.07) 0%, transparent 60%);
+}
+
+.setup-inner { width: 100%; max-width: 480px; }
+
+.wordmark {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--sub);
+  font-family: 'DM Mono', monospace;
+  margin-bottom: 6px;
+}
+
+.setup-inner h1 {
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  margin-bottom: 6px;
+}
+
+.setup-inner .desc {
+  color: var(--sub);
+  font-size: 14px;
+  margin-bottom: 32px;
+}
+
+.pov-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 8px;
+  transition: border-color 0.15s;
+}
+
+.pov-card:focus-within { border-color: var(--border2); }
+
+.pov-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.pip { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+.pov-card-head .label { font-size: 12px; font-weight: 500; color: var(--sub); letter-spacing: 0.02em; }
+.pov-card-head .opt { margin-left: auto; font-size: 11px; color: var(--dim); font-family: 'DM Mono', monospace; }
+
+.field-row { display: grid; grid-template-columns: 120px 1fr; gap: 8px; }
+
+input[type=text] {
+  width: 100%;
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  padding: 9px 11px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+input[type=text]:focus { border-color: rgba(109,156,248,0.5); }
+input::placeholder { color: var(--dim); }
+
+.btn-cta {
+  width: 100%;
+  margin-top: 18px;
+  padding: 13px;
+  background: var(--c1);
+  color: #fff;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+}
+
+.btn-cta:hover { opacity: 0.9; }
+.btn-cta:active { transform: scale(0.99); }
+
+.setup-err {
+  color: var(--c3);
+  font-size: 12px;
+  margin-top: 8px;
+  text-align: center;
+  font-family: 'DM Mono', monospace;
+  display: none;
+}
+
+/* ─── APP ─── */
+#app { display: none; height: 100vh; flex-direction: column; }
+
+.topbar {
+  height: 44px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.topbar-logo { font-size: 13px; font-weight: 600; letter-spacing: -0.2px; }
+.topbar-sep { width: 1px; height: 14px; background: var(--border2); }
+.topbar-session { font-size: 12px; color: var(--sub); font-family: 'DM Mono', monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 260px; }
+.topbar-right { margin-left: auto; display: flex; gap: 6px; }
+
+.btn-sm {
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  color: var(--sub);
+  padding: 5px 12px;
+  border-radius: var(--radius-sm);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.12s;
+  white-space: nowrap;
+}
+
+.btn-sm:hover { color: var(--text); border-color: var(--border2); }
+
+.workspace { flex: 1; display: grid; grid-template-columns: 1fr 272px; min-height: 0; }
+
+.main-col { display: flex; flex-direction: column; min-width: 0; border-right: 1px solid var(--border); }
+
+.stage { flex: 1; background: #000; position: relative; min-height: 0; }
+#main-yt { width: 100%; height: 100%; }
+#main-yt iframe { width: 100%; height: 100%; display: block; }
+
+.stage-badge {
+  position: absolute;
+  top: 12px; left: 12px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(12,12,14,0.75);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px;
+  padding: 5px 11px 5px 8px;
+  pointer-events: none;
+}
+
+.stage-badge-dot { width: 7px; height: 7px; border-radius: 50%; }
+.stage-badge-name { font-size: 12px; font-weight: 500; }
+
+.controls {
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding: 10px 14px;
+  flex-shrink: 0;
+}
+
+.prog-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+
+.time-lbl { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--sub); white-space: nowrap; min-width: 88px; }
+
+.prog-track {
+  flex: 1; height: 3px; background: var(--elevated);
+  border-radius: 3px; cursor: pointer; position: relative; transition: height 0.15s;
+}
+
+.prog-track:hover { height: 5px; }
+.prog-fill { height: 100%; background: var(--c1); border-radius: 3px; width: 0%; pointer-events: none; }
+
+.btn-row { display: flex; align-items: center; gap: 6px; }
+
+.ic-btn {
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  color: var(--text);
+  width: 32px; height: 32px;
+  border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: all 0.12s; flex-shrink: 0; font-size: 13px;
+}
+
+.ic-btn:hover { border-color: var(--border2); background: var(--surface); }
+.ic-btn.active { background: var(--c1); border-color: var(--c1); color: #fff; }
+
+.speed-group {
+  display: flex; align-items: center; gap: 3px;
+  background: var(--elevated); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 0 6px; height: 32px;
+}
+
+.speed-lbl { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--sub); min-width: 24px; text-align: center; }
+.speed-adj { background: none; border: none; color: var(--sub); cursor: pointer; font-size: 14px; padding: 0 2px; line-height: 1; transition: color 0.1s; }
+.speed-adj:hover { color: var(--text); }
+
+.pov-tabs { margin-left: auto; display: flex; gap: 4px; }
+
+.pov-tab {
+  padding: 5px 13px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: transparent;
+  color: var(--sub); font-family: 'DM Sans', sans-serif;
+  font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.12s; white-space: nowrap;
+}
+
+.pov-tab:hover { color: var(--text); border-color: var(--border2); }
+.pov-tab.active { color: #fff; }
+
+/* ─── SIDEBAR ─── */
+.sidebar { display: flex; flex-direction: column; overflow-y: auto; background: var(--surface); }
+
+.sb-section { padding: 14px; border-bottom: 1px solid var(--border); }
+
+.sb-title {
+  font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--dim); margin-bottom: 10px;
+  font-family: 'DM Mono', monospace;
+}
+
+.mini-card {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); overflow: hidden;
+  margin-bottom: 8px; cursor: pointer; transition: border-color 0.15s;
+}
+
+.mini-card:last-child { margin-bottom: 0; }
+.mini-card:hover { border-color: var(--border2); }
+
+.mini-head { display: flex; align-items: center; padding: 7px 9px; gap: 7px; background: rgba(255,255,255,0.02); }
+.mini-pip { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.mini-name { font-size: 12px; font-weight: 500; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mini-t { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--sub); }
+
+.mini-video { width: 100%; aspect-ratio: 16/9; background: #000; pointer-events: none; }
+.mini-video iframe { width: 100%; height: 100%; display: block; }
+
+/* ─── SYNC POINTS ─── */
+.sync-section { padding: 14px; border-bottom: 1px solid var(--border); }
+
+.sync-hdr { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+
+.sync-desc { font-size: 11px; color: var(--sub); line-height: 1.6; margin-bottom: 12px; }
+
+.sync-list { display: flex; flex-direction: column; gap: 5px; }
+
+.sync-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; background: var(--bg);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  transition: border-color 0.15s;
+}
+
+.sync-pip { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.sync-name { font-size: 12px; font-weight: 500; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sync-time { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--dim); min-width: 36px; text-align: right; }
+.sync-time.set { color: var(--text); }
+
+.btn-flag {
+  background: var(--elevated); border: 1px solid var(--border);
+  color: var(--dim); width: 26px; height: 26px; border-radius: 5px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 12px; transition: all 0.12s; flex-shrink: 0;
+}
+
+.btn-flag:hover { border-color: var(--border2); color: var(--text); }
+.btn-flag.set { background: rgba(94,207,160,0.12); border-color: rgba(94,207,160,0.4); color: var(--c2); }
+
+.btn-apply {
+  width: 100%; margin-top: 10px; padding: 8px;
+  background: rgba(94,207,160,0.1); border: 1px solid rgba(94,207,160,0.3);
+  color: var(--c2); border-radius: var(--radius-sm);
+  font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500;
+  cursor: pointer; transition: all 0.15s; display: none;
+}
+
+.btn-apply:hover { background: rgba(94,207,160,0.18); }
+
+.btn-clr { background: none; border: none; color: var(--dim); font-size: 11px; font-family: 'DM Mono', monospace; cursor: pointer; transition: color 0.1s; }
+.btn-clr:hover { color: var(--sub); }
+
+/* ─── NOTES ─── */
+.notes-section { flex: 1; display: flex; flex-direction: column; padding: 14px; min-height: 0; }
+
+textarea {
+  flex: 1; background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--text);
+  font-family: 'DM Mono', monospace; font-size: 11px; line-height: 1.7;
+  padding: 10px; resize: none; outline: none; transition: border-color 0.15s; min-height: 80px;
+}
+
+textarea:focus { border-color: var(--border2); }
+textarea::placeholder { color: var(--dim); }
+
+.btn-ts {
+  background: var(--elevated); border: 1px solid var(--border); color: var(--sub);
+  border-radius: var(--radius-sm); padding: 7px; font-family: 'DM Sans', sans-serif;
+  font-size: 11px; cursor: pointer; margin-top: 6px; width: 100%; transition: all 0.12s;
+}
+
+.btn-ts:hover { color: var(--text); border-color: var(--border2); }
+
+.hotkeys { padding: 10px 14px; border-top: 1px solid var(--border); display: grid; grid-template-columns: 1fr 1fr; gap: 5px 10px; }
+
+.hk { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--dim); }
+
+kbd {
+  background: var(--elevated); border: 1px solid var(--border);
+  border-radius: 4px; padding: 1px 5px; font-family: 'DM Mono', monospace;
+  font-size: 10px; color: var(--sub); white-space: nowrap;
+}
+
+.toast {
+  position: fixed; bottom: 20px; left: 50%;
+  transform: translateX(-50%) translateY(48px);
+  background: var(--elevated); border: 1px solid var(--border2);
+  color: var(--text); padding: 8px 16px; border-radius: 20px;
+  font-size: 12px; font-weight: 500; z-index: 999;
+  transition: transform 0.2s cubic-bezier(0.34,1.3,0.64,1);
+  pointer-events: none; white-space: nowrap;
+}
+
+.toast.show { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<!-- SETUP -->
+<div id="setup">
+  <div class="setup-inner">
+    <div class="wordmark">Rewind</div>
+    <h1>VOD Review</h1>
+    <p class="desc">Sync and review gameplay footage from multiple perspectives.</p>
+
+    <div class="pov-card">
+      <div class="pov-card-head">
+        <div class="pip" style="background:var(--c1)"></div>
+        <span class="label">Player 1</span>
+      </div>
+      <div class="field-row">
+        <input id="n1" type="text" placeholder="Name">
+        <input id="u1" type="text" placeholder="YouTube URL">
+      </div>
+    </div>
+
+    <div class="pov-card">
+      <div class="pov-card-head">
+        <div class="pip" style="background:var(--c2)"></div>
+        <span class="label">Player 2</span>
+      </div>
+      <div class="field-row">
+        <input id="n2" type="text" placeholder="Name">
+        <input id="u2" type="text" placeholder="YouTube URL">
+      </div>
+    </div>
+
+    <div class="pov-card">
+      <div class="pov-card-head">
+        <div class="pip" style="background:var(--c3)"></div>
+        <span class="label">Player 3</span>
+        <span class="opt">optional</span>
+      </div>
+      <div class="field-row">
+        <input id="n3" type="text" placeholder="Name">
+        <input id="u3" type="text" placeholder="YouTube URL">
+      </div>
+    </div>
+
+    <div class="setup-err" id="setup-err">Need at least 2 valid YouTube URLs</div>
+    <button class="btn-cta" onclick="startSession()">Start Session</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="topbar">
+    <span class="topbar-logo">Rewind</span>
+    <div class="topbar-sep"></div>
+    <span class="topbar-session" id="tb-sess"></span>
+    <div class="topbar-right">
+      <button class="btn-sm" onclick="exportNotes()">Export Notes</button>
+      <button class="btn-sm" onclick="newSession()">New Session</button>
+    </div>
+  </div>
+
+  <div class="workspace">
+    <div class="main-col">
+      <div class="stage">
+        <div id="main-yt"></div>
+        <div class="stage-badge">
+          <div class="stage-badge-dot" id="bdot"></div>
+          <span class="stage-badge-name" id="bname"></span>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div class="prog-row">
+          <span class="time-lbl" id="tlbl">0:00 / 0:00</span>
+          <div class="prog-track" id="prog" onclick="seekClick(event)">
+            <div class="prog-fill" id="pfill"></div>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="ic-btn" onclick="seekRel(-10)">⏪</button>
+          <button class="ic-btn" id="pbtn" onclick="togglePlay()">▶</button>
+          <button class="ic-btn" onclick="seekRel(10)">⏩</button>
+          <div class="speed-group">
+            <button class="speed-adj" onclick="chSpd(-0.25)">−</button>
+            <span class="speed-lbl" id="slbl">1×</span>
+            <button class="speed-adj" onclick="chSpd(0.25)">+</button>
+          </div>
+          <div class="pov-tabs" id="povtabs"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar">
+      <div class="sb-section">
+        <div class="sb-title">All POVs</div>
+        <div id="minilist"></div>
+      </div>
+
+      <div class="sync-section">
+        <div class="sync-hdr">
+          <div class="sb-title" style="margin:0">Sync Points</div>
+          <button class="btn-clr" id="bclr" onclick="clearSync()">Clear</button>
+        </div>
+        <p class="sync-desc">Switch to each POV, find the same moment (e.g. round start), press <kbd>F</kbd> or the flag. Then hit Apply.</p>
+        <div class="sync-list" id="synclist"></div>
+        <button class="btn-apply" id="bapply" onclick="applySync()">Apply Sync →</button>
+      </div>
+
+      <div class="notes-section">
+        <div class="sb-title">Notes</div>
+        <textarea id="notes" placeholder="Write your analysis here...&#10;&#10;Press T to insert a timestamp."></textarea>
+        <button class="btn-ts" onclick="insertTs()">+ Insert Timestamp</button>
+      </div>
+
+      <div class="hotkeys">
+        <div class="hk"><kbd>Space</kbd> play/pause</div>
+        <div class="hk"><kbd>1 2 3</kbd> switch POV</div>
+        <div class="hk"><kbd>← →</kbd> seek 5s</div>
+        <div class="hk"><kbd>T</kbd> timestamp</div>
+        <div class="hk"><kbd>F</kbd> flag sync</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const CHEX = ['#6d9cf8','#5ecfa0','#f87a6d'];
+const CVAR = ['var(--c1)','var(--c2)','var(--c3)'];
+
+const S = {
+  povs:[], active:0, playing:false, speed:1, dur:0,
+  main:null, minis:[], ready:[], ticker:null
+};
+
+let ytOk = false;
+window.onYouTubeIframeAPIReady = () => { ytOk = true; };
+const sc = document.createElement('script');
+sc.src = 'https://www.youtube.com/iframe_api';
+document.head.appendChild(sc);
+
+function waitYT(cb) {
+  if (ytOk && window.YT?.Player) cb();
+  else setTimeout(()=>waitYT(cb),100);
+}
+
+function getVid(url) {
+  if (!url) return null;
+  const m = url.match(/(?:v=|\/embed\/|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  return m ? m[1] : (/^[a-zA-Z0-9_-]{11}$/.test(url)?url:null);
+}
+
+function startSession() {
+  const rows = [
+    {name:document.getElementById('n1').value.trim()||'Player 1', url:document.getElementById('u1').value.trim()},
+    {name:document.getElementById('n2').value.trim()||'Player 2', url:document.getElementById('u2').value.trim()},
+    {name:document.getElementById('n3').value.trim()||'Player 3', url:document.getElementById('u3').value.trim()},
+  ];
+  const valid = rows.filter(r=>getVid(r.url));
+  if (valid.length < 2) { document.getElementById('setup-err').style.display='block'; return; }
+
+  S.povs = valid.map((r,i)=>({name:r.name, vid:getVid(r.url), hex:CHEX[i], offset:0, syncPt:null}));
+  S.active=0; S.ready=new Array(S.povs.length).fill(false); S.minis=new Array(S.povs.length).fill(null);
+
+  document.getElementById('setup').style.display='none';
+  document.getElementById('app').style.display='flex';
+  buildUI();
+  waitYT(initPlayers);
+}
+
+function buildUI() {
+  document.getElementById('tb-sess').textContent = S.povs.map(p=>p.name).join(' · ');
+  document.getElementById('main-yt').innerHTML = '<div id="yt-main"></div>';
+  updateBadge();
+
+  // POV tabs
+  document.getElementById('povtabs').innerHTML = S.povs.map((p,i)=>`
+    <button class="pov-tab ${i===0?'active':''}" id="tab-${i}"
+      style="${i===0?`border-color:${p.hex};color:${p.hex}`:''}"
+      onclick="switchPov(${i})">${p.name}</button>`).join('');
+
+  // Mini list
+  document.getElementById('minilist').innerHTML = S.povs.map((p,i)=>`
+    <div class="mini-card" id="mc-${i}" style="${i===0?`border-color:${p.hex}`:''}" onclick="switchPov(${i})">
+      <div class="mini-head">
+        <div class="mini-pip" style="background:${p.hex}"></div>
+        <span class="mini-name">${p.name}</span>
+        <span class="mini-t" id="mt-${i}">0:00</span>
+      </div>
+      <div class="mini-video"><div id="yt-mini-${i}"></div></div>
+    </div>`).join('');
+
+  buildSyncUI();
+}
+
+function buildSyncUI() {
+  document.getElementById('synclist').innerHTML = S.povs.map((p,i)=>`
+    <div class="sync-row" id="sr-${i}" style="${p.syncPt!==null?`border-color:${p.hex}`:'' }">
+      <div class="sync-pip" style="background:${p.hex}"></div>
+      <span class="sync-name">${p.name}</span>
+      <span class="sync-time ${p.syncPt!==null?'set':''}" id="sp-${i}">${p.syncPt!==null?fmt(p.syncPt):'—'}</span>
+      <button class="btn-flag ${p.syncPt!==null?'set':''}" onclick="flagSync(${i})" title="F">⚑</button>
+    </div>`).join('');
+
+  const all = S.povs.every(p=>p.syncPt!==null);
+  document.getElementById('bapply').style.display = all?'block':'none';
+  document.getElementById('bclr').style.opacity = S.povs.some(p=>p.syncPt!==null)?'1':'0.3';
+}
+
+function updateBadge() {
+  const p = S.povs[S.active];
+  document.getElementById('bdot').style.background = p.hex;
+  document.getElementById('bname').textContent = p.name;
+}
+
+function initPlayers() {
+  S.main = new YT.Player('yt-main', {
+    videoId: S.povs[0].vid,
+    playerVars: {controls:0, disablekb:1, rel:0, modestbranding:1},
+    events: {
+      onReady: e => { S.main=e.target; markReady(0); },
+      onStateChange: e => {
+        if (e.data===YT.PlayerState.PLAYING) { S.playing=true; setPlay(true); }
+        if (e.data===YT.PlayerState.PAUSED||e.data===YT.PlayerState.ENDED) { S.playing=false; setPlay(false); }
+      }
+    }
+  });
+
+  S.povs.forEach((p,i) => {
+    new YT.Player(`yt-mini-${i}`, {
+      videoId: p.vid,
+      playerVars: {controls:0, disablekb:1, rel:0, modestbranding:1, mute:1},
+      events: {
+        onReady: e => { S.minis[i]=e.target; e.target.mute(); if(i!==0) markReady(i); }
+      }
+    });
+  });
+}
+
+function markReady(i) {
+  S.ready[i]=true;
+  if (S.ready.every(Boolean)) { clearInterval(S.ticker); S.ticker=setInterval(tick,500); }
+}
+
+function tick() {
+  if (!S.main) return;
+  try {
+    const t = S.main.getCurrentTime()||0;
+    const dur = S.main.getDuration()||0;
+    S.dur = dur;
+    document.getElementById('pfill').style.width = dur>0?(t/dur*100)+'%':'0%';
+    document.getElementById('tlbl').textContent = fmt(t)+' / '+fmt(dur);
+    S.minis.forEach((m,i) => {
+      if (!m) return;
+      try {
+        const mt = m.getCurrentTime()||0;
+        const el = document.getElementById(`mt-${i}`);
+        if (el) el.textContent = fmt(mt);
+        const exp = t+S.povs[i].offset;
+        if (Math.abs(mt-exp)>1.5) m.seekTo(Math.max(0,exp),true);
+        if (S.playing && m.getPlayerState()!==1) m.playVideo();
+        else if (!S.playing && m.getPlayerState()===1) m.pauseVideo();
+      } catch(e){}
+    });
+  } catch(e){}
+}
+
+function togglePlay() {
+  if (!S.main) return;
+  if (S.playing) { S.main.pauseVideo(); S.minis.forEach(m=>{try{m.pauseVideo()}catch(e){}}); }
+  else { S.main.playVideo(); S.minis.forEach(m=>{try{m.playVideo()}catch(e){}}); }
+}
+
+function setPlay(pl) {
+  const b = document.getElementById('pbtn');
+  b.textContent = pl?'⏸':'▶';
+  b.classList.toggle('active', pl);
+}
+
+function seekRel(s) {
+  if (!S.main) return;
+  const t = Math.max(0,(S.main.getCurrentTime()||0)+s);
+  S.main.seekTo(t,true);
+  S.minis.forEach((m,i)=>{try{m.seekTo(Math.max(0,t+S.povs[i].offset),true)}catch(e){}});
+}
+
+function seekClick(e) {
+  if (!S.main||!S.dur) return;
+  const r = e.currentTarget.getBoundingClientRect();
+  const t = ((e.clientX-r.left)/r.width)*S.dur;
+  S.main.seekTo(t,true);
+  S.minis.forEach((m,i)=>{try{m.seekTo(Math.max(0,t+S.povs[i].offset),true)}catch(e){}});
+}
+
+function chSpd(d) {
+  S.speed = Math.max(0.25, Math.min(2, Math.round((S.speed+d)*4)/4));
+  try { S.main.setPlaybackRate(S.speed); } catch(e){}
+  document.getElementById('slbl').textContent = S.speed+'×';
+}
+
+function switchPov(idx) {
+  if (idx>=S.povs.length) return;
+  const t = S.main?(S.main.getCurrentTime()||0):0;
+  const newT = t+S.povs[idx].offset;
+  const wasPlaying = S.playing;
+  try {
+    S.main.loadVideoById({videoId:S.povs[idx].vid, startSeconds:Math.max(0,newT)});
+    S.main.setPlaybackRate(S.speed);
+    if (!wasPlaying) setTimeout(()=>{try{S.main.pauseVideo()}catch(e){}},800);
+  } catch(e){}
+  S.active=idx;
+  updateBadge();
+  S.povs.forEach((p,i)=>{
+    const tab=document.getElementById(`tab-${i}`);
+    if(tab){ tab.classList.toggle('active',i===idx); tab.style.borderColor=i===idx?p.hex:'var(--border)'; tab.style.color=i===idx?p.hex:'var(--sub)'; }
+    const mc=document.getElementById(`mc-${i}`);
+    if(mc){ mc.style.borderColor=i===idx?p.hex:'var(--border)'; }
+  });
+}
+
+// ── SYNC POINTS ──
+function flagSync(idx) {
+  if (idx===undefined) idx=S.active;
+  if (!S.main) return;
+  let t;
+  if (idx===S.active) {
+    t = S.main.getCurrentTime()||0;
+  } else {
+    try { t=S.minis[idx].getCurrentTime()||0; } catch(e){t=0;}
+  }
+  S.povs[idx].syncPt = t;
+  buildSyncUI();
+  toast(`${S.povs[idx].name} — sync point at ${fmt(t)}`);
+  if (S.povs.every(p=>p.syncPt!==null)) toast('All set — click Apply Sync!');
+}
+
+function applySync() {
+  const minPt = Math.min(...S.povs.map(p=>p.syncPt));
+  S.povs.forEach(p=>{ p.offset = -(p.syncPt - minPt); });
+  const refT = minPt;
+  if (S.main) try { S.main.seekTo(Math.max(0, refT+S.povs[S.active].offset), true); } catch(e){}
+  S.minis.forEach((m,i)=>{ try{m.seekTo(Math.max(0,refT+S.povs[i].offset),true)}catch(e){} });
+  buildSyncUI();
+  toast('Videos synced ✓');
+}
+
+function clearSync() {
+  S.povs.forEach(p=>{p.syncPt=null; p.offset=0;});
+  buildSyncUI();
+  toast('Sync points cleared');
+}
+
+function insertTs() {
+  const t = S.main?(S.main.getCurrentTime()||0):0;
+  const ta = document.getElementById('notes');
+  const ts = `[${fmt(t)} · ${S.povs[S.active].name}] `;
+  const pos = ta.selectionStart;
+  ta.value = ta.value.slice(0,pos)+ts+ta.value.slice(pos);
+  ta.selectionStart = ta.selectionEnd = pos+ts.length;
+  ta.focus();
+}
+
+function exportNotes() {
+  const n = document.getElementById('notes').value;
+  const txt = ['Rewind — VOD Review','='+'='.repeat(27),'','Players:',
+    ...S.povs.map(p=>`  ${p.name}  https://youtu.be/${p.vid}  offset: ${p.offset.toFixed(1)}s`),
+    '','='+'='.repeat(27),'',n].join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([txt],{type:'text/plain'}));
+  a.download='vod-review.txt'; a.click();
+  toast('Notes exported');
+}
+
+function newSession() {
+  clearInterval(S.ticker);
+  [S.main,...S.minis].forEach(p=>{try{p.destroy()}catch(e){}});
+  S.main=null; S.minis=[];
+  document.getElementById('app').style.display='none';
+  document.getElementById('setup').style.display='flex';
+}
+
+function fmt(s) {
+  if (!s||isNaN(s)) return '0:00';
+  return Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0');
+}
+
+function toast(msg) {
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.classList.add('show');
+  clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('show'),2200);
+}
+
+document.addEventListener('keydown', e=>{
+  if (document.getElementById('app').style.display==='none') return;
+  if (e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
+  if (e.key===' ') { e.preventDefault(); togglePlay(); }
+  else if (e.key==='ArrowLeft') seekRel(-5);
+  else if (e.key==='ArrowRight') seekRel(5);
+  else if (e.key==='1') switchPov(0);
+  else if (e.key==='2') switchPov(1);
+  else if (e.key==='3') switchPov(2);
+  else if (e.key==='t'||e.key==='T') insertTs();
+  else if (e.key==='f'||e.key==='F') flagSync(S.active);
+});
+</script>
+</body>
+</html>
