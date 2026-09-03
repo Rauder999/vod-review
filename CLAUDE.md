@@ -16,21 +16,19 @@ Working and deployed (main = June 2026 build, tagged `v1-june-2026` locally).
 
 September 2026 round, branch `qol-persistence-errors`, not yet merged or pushed:
 
-- Session persistence to localStorage (done)
-- Error states for videos that fail to load (done)
-- Parser, sync math and snapshot tests committed, 63 passing (done)
+- Session persistence to localStorage (done, merged, live)
+- Error states for videos that fail to load (done, merged, live)
+- Parser, sync math and snapshot tests committed, 63 passing (done, merged, live)
 - Local git workflow with real commit messages instead of web-UI uploads (done)
-- UI pass: deliberately postponed. Rauder wants a large redesign, to be done as its own round.
+- UI rebuild on branch `ui-redesign` (done, awaiting Rauder's palette choice and go-ahead to push). See UI rebuild below.
 
 ## Architecture
 
-**Single file.** Everything is one `index.html` at repo root: markup, CSS, and JS inline. No build step, no bundler, no package.json. Runtime dependencies loaded from CDNs:
+**Single file.** Everything is one `index.html` at repo root: markup, CSS, and JS inline. No build step, no bundler, no package.json. Runtime dependencies:
 
-- `https://www.youtube.com/iframe_api`
-- `https://player.twitch.tv/js/embed/v1.js`
-- Phosphor icons CSS from unpkg (transport and error icons)
-- Google Fonts (Outfit, JetBrains Mono)
-- THE FINALS key art, character render and logo hotlinked from Embark's Squarespace CDN. Not in the repo. If Embark moves those files the setup screen loses its background silently. Worth self-hosting or replacing during the UI round.
+- `https://www.youtube.com/iframe_api` and `https://player.twitch.tv/js/embed/v1.js`, loaded on demand by `ensureApi(platform)`: as soon as a link of that platform is typed on the setup screen, and again (no-op) when a session starts.
+- Google Fonts, one stylesheet link with `display=swap` (Bricolage Grotesque 700, Instrument Sans 400/500/600, JetBrains Mono 400/500).
+- Nothing else. Icons are an inline SVG sprite at the top of `<body>`. There are no images. The September 2026 rebuild removed the Phosphor icon CSS from unpkg and the THE FINALS art that was hotlinked from Squarespace; the tool is game-agnostic now.
 
 **Player-per-POV adapter model.** This is the core design decision and it should not be reverted. The original build used one YouTube player and called `loadVideoById` on every POV switch. That could not hold a YouTube and a Twitch video simultaneously, so the engine was rebuilt in June: every POV gets its own persistent player instance, all stacked in the stage, and switching just toggles visibility. Two consequences: POV switching is near-instant, and mixed YouTube/Twitch sessions work.
 
@@ -150,24 +148,31 @@ Covers: YouTube and Twitch URL forms, parseSource edge cases, watchUrl round-tri
 - Branding assets are hotlinked from a third-party CDN (see Architecture).
 - All CSS and JS live in one file with no separation, which is fine at this size but makes review harder as it grows.
 
-## Design system as built
+## UI rebuild (September 2026)
 
-Dark, near-black, restrained. Fonts: Outfit for UI, JetBrains Mono for labels and monospace bits, both from Google Fonts.
+**Concept: a control room.** POVs are cameras, labelled CAM 1 to 6 everywhere (setup cards, cam buttons under the timeline, the stage badge, multiview chips, the export). The active camera carries a tally: coloured ring, lit dot, glow. A failed camera gets a struck-through name and a red mark. Timecode is monospaced with tabular numerals.
+
+**Palettes.** Three, switched by `data-palette` on `<html>` and stored in `localStorage` under `rewind.palette`. Component CSS reads only tokens, so a palette is a pure token swap. Swatches live in the setup footer. Default is `signal` until Rauder picks.
 
 ```
---bg:#09090b  --s1:#111113  --s2:#18181c  --s3:#222228
---b1:rgba(255,255,255,0.06)  --b2:rgba(255,255,255,0.11)  --b3:rgba(255,255,255,0.17)
---tx:#f1f1f4  --t2:#9090a8  --t3:#55556a
---blue:#5b8ef0  --green:#4ecb8d  --red:#f06b5b  --yellow:#f0c55b  --purple:#9b6ef0
---finals-gold:#e8c96a  --finals-orange:#e8874a
---r:8px  --r2:5px
+signal  (default)  bg #0b0c0f  s1 #111318  s2 #171a20  s3 #1f232b  tx #eef0f4  t2 #9aa1b0  accent #f2b544 (amber)
+monitor            bg #090c12  s1 #0f131b  s2 #151a24  s3 #1c2330  tx #edf2fa  t2 #94a3bd  accent #7cc4ff (ice blue)
+studio             bg #0e0d10  s1 #151317  s2 #1b191e  s3 #242127  tx #f3eff6  t2 #a59db2  accent #c4a6ff (lilac)
+semantic (all)     ok #3fd18f  warn = accent  bad #ff5d5d
+POV colours (CHEX) #4f9cf9 #3fd18f #ff7a59 #b48cff #ff8fc2 #33d3cc
+tag colours        mistake #ff5d5d  good #3fd18f  rotation #4f9cf9  comms #33d3cc  note #b48cff
+radii              --r 10px  --r2 7px  --r3 4px, pills are 999px
 ```
 
-POV colors are assigned in order from that accent list.
+POV colours deliberately avoid yellow so the amber accent never collides with a camera. Tag colours are stored inside saved markers as hex, so changing them only affects new markers.
 
-Feedback from Rauder on earlier iterations, worth keeping in mind: the transport buttons once looked like a 2000s media player, and the timeline looked "tired". Both were reworked. Whatever comes next should not regress toward stock media-player styling.
+**Type.** Bricolage Grotesque 700 for the wordmark and overlay titles only. Instrument Sans for UI. JetBrains Mono for timecode, eyebrows, chips and `kbd`.
 
-The resume card and error overlay added in September 2026 use the existing palette and are intentionally plain; they are expected to be restyled in the UI round.
+**Layout.** Top bar (wordmark, session names, shortcuts `?`, Notes, Export, New). Main: stage, then the deck (timecode + timeline row; transport pill, speed pill, volume pill, cam buttons; mark tags). Right rail: Multiview cards with live per-camera time, Sync points, Markers, and a footer hint for `?`. Notes slide in from the right. A shortcuts overlay opens on `?` and closes on Esc.
+
+**What is new in behaviour, beyond looks.** Hover on the timeline shows the time under the cursor. `Esc` closes notes or the shortcuts overlay. The setup link field shows a YT or TW chip as you type and "no match" for a bad link. Remove is hidden on the last card; Add POV disables at six. The stage shows "Loading players" until the active one is ready.
+
+**Rauder's earlier feedback still applies:** the transport once looked like a 2000s media player and the timeline looked "tired". The rebuild uses pill clusters and a thick glowing playhead; do not regress toward stock media-player chrome.
 
 ## Scope
 
@@ -177,10 +182,10 @@ The engine works. Do not rewrite the adapter model or the sync math to make the 
 
 ## Next up
 
-1. Rauder reviews the `qol-persistence-errors` branch on a local server or after merging to `main`, including a real Twitch VOD on the github.io page (Twitch cannot be tested from localhost over http).
-2. UI redesign round. Rauder wants a big rework, not a touch-up. Start from the current palette and the feedback above.
+1. Rauder picks a palette (signal, monitor or studio) and says whether to keep the switcher. Then merge `ui-redesign` into `main` and push.
+2. Check a real Twitch VOD on the github.io page after the push (Twitch cannot be tested from localhost over http).
 
-Other quality-of-life candidates worth raising with Rauder, not yet approved: a visible keyboard shortcut reference, renaming POVs mid-session, reordering POV tabs, jumping between markers with a key, undo for a deleted note, more than one saved session.
+Other quality-of-life candidates worth raising with Rauder, not yet approved: renaming POVs mid-session, reordering cameras, jumping between markers with a key, undo for a deleted note, more than one saved session, a grid view showing all cameras at once.
 
 ## Working notes
 
