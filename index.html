@@ -201,6 +201,33 @@ textarea::placeholder{color:var(--t3)}
 /* setup platform note */
 .setup-note{font-size:11px;color:var(--t3);line-height:1.5;margin-top:10px;padding:8px 10px;background:rgba(145,70,255,.06);border:1px solid rgba(145,70,255,.18);border-radius:var(--r2)}
 .setup-note b{color:#b39bff;font-weight:600}
+
+/* ── RESUME CARD (setup, shown when a saved session exists) ── */
+.resume-card{display:none;background:rgba(91,142,240,.07);border:1px solid rgba(91,142,240,.28);border-radius:var(--r);padding:12px 14px;margin-bottom:12px}
+.resume-card.show{display:block}
+.resume-hd{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.resume-title{font-size:12px;font-weight:600;color:var(--blue)}
+.resume-age{margin-left:auto;font-size:10px;color:var(--t3);font-family:'JetBrains Mono',monospace}
+.resume-meta{font-size:12px;color:var(--t2);margin-bottom:10px;line-height:1.5}
+.resume-actions{display:flex;gap:6px}
+.btn-resume{flex:1;padding:8px;background:var(--blue);color:#fff;border:none;border-radius:var(--r2);font-family:'Outfit',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:opacity .15s}
+.btn-resume:hover{opacity:.88}
+.btn-discard{padding:8px 12px;background:transparent;border:1px solid var(--b2);color:var(--t2);border-radius:var(--r2);font-family:'Outfit',sans-serif;font-size:12px;cursor:pointer;transition:all .12s}
+.btn-discard:hover{color:var(--red);border-color:rgba(240,107,91,.4)}
+
+/* ── PLAYER ERROR OVERLAY (private / embedding disabled / failed to load) ── */
+.pov-err{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;padding:24px;background:rgba(9,9,11,.92);backdrop-filter:blur(6px)}
+.pov-err.soft{background:rgba(9,9,11,.78)}
+.pov-err-ico{font-size:30px;color:var(--red);line-height:1}
+.pov-err.soft .pov-err-ico{color:var(--yellow)}
+.pov-err-title{font-size:15px;font-weight:600}
+.pov-err-msg{font-size:12px;color:var(--t2);max-width:400px;line-height:1.55}
+.pov-err-code{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--t3)}
+.pov-err-actions{display:flex;gap:6px;margin-top:6px}
+.pov-err .btn-ghost{text-decoration:none;display:inline-flex;align-items:center}
+.ptab.err::before{content:'! ';color:var(--red);font-weight:700}
+.mc.err .mc-name{color:var(--red)}
+.mc.err .mc-thumb{filter:grayscale(1);opacity:.3}
 </style>
 </head>
 <body>
@@ -214,6 +241,14 @@ textarea::placeholder{color:var(--t3)}
     <div class="setup-logo">Rewind</div>
     <h1>VOD <em>Review</em></h1>
     <p class="setup-tagline">Multi-POV sync analysis for competitive teams.</p>
+    <div class="resume-card" id="resume-card">
+      <div class="resume-hd"><span class="resume-title">Last session found</span><span class="resume-age" id="resume-age"></span></div>
+      <div class="resume-meta" id="resume-meta"></div>
+      <div class="resume-actions">
+        <button class="btn-resume" onclick="resumeSession()">Resume session</button>
+        <button class="btn-discard" onclick="discardSaved()">Discard</button>
+      </div>
+    </div>
     <div id="pov-cards">
       <div class="pov-card">
         <div class="pov-card-head"><div class="pip" style="background:#5b8ef0"></div><span>Player 1</span></div>
@@ -372,6 +407,11 @@ const S = {
   loopA: null,
   loopB: null,
   notesOpen: false,
+  live: false,       // true while the review screen is showing (persistence only saves then)
+  lastKnownT: 0,     // last active-player time seen by tick(); persisted as lastTime
+  resumeAt: null,    // time to seek to once the active player is ready (set by resumeSession)
+  _saveT: null,      // debounce handle for saveSoon()
+  _lastSave: 0,      // timestamp of the last localStorage write
 };
 let mid = 0;
  
@@ -398,9 +438,15 @@ function twitchParents(){
   return Array.from(hosts);
 }
  
-// ─────────────────────────────────────────────
-// URL PARSING
-// ─────────────────────────────────────────────
+// ═════════════════════════════════════════════
+// PURE CORE
+//   No DOM, no window, no S. Everything between the START and END markers
+//   is extracted verbatim by tests/core.test.mjs and run under node:test.
+//   Keep it that way: if a function here needs the page, it belongs below.
+// ═════════════════════════════════════════════
+// ── PURE CORE START ──
+
+// URL parsing
 function getYT(u){
   if (!u) return null;
   const m = u.match(/(?:v=|\/embed\/|youtu\.be\/|\/live\/|\/shorts\/)([a-zA-Z0-9_-]{11})/);
@@ -431,6 +477,156 @@ function parseSource(u){
 }
 function platLabel(p){ return p === 'twitch' ? 'TW' : 'YT'; }
 function watchUrl(p){ return p.platform === 'twitch' ? `https://www.twitch.tv/videos/${p.vid}` : `https://youtu.be/${p.vid}`; }
+
+// Sync math (unchanged since the first working build, see STATE comment above):
+//   masterTime = currentT - fromSync ; targetT = masterTime + toSync
+function syncShift(currentT, fromSync, toSync){ return (currentT - fromSync) + toSync; }
+
+// m:ss formatting
+function fmt(s) {
+  if (s === null || s === undefined || isNaN(s) || s < 0) return '0:00';
+  return Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
+}
+
+// "5 min ago" style label for the resume card
+function ageLabel(ms){
+  if (!(ms >= 0)) return '';
+  const m = Math.floor(ms / 60000);
+  if (m < 1) return 'just now';
+  if (m < 60) return m + ' min ago';
+  const h = Math.floor(m / 60);
+  if (h < 24) return h + ' h ago';
+  const d = Math.floor(h / 24);
+  return d + ' d ago';
+}
+
+// minimal HTML escaping for text we put into innerHTML
+function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// YouTube IFrame API onError codes (from the official reference)
+function ytErrorInfo(code){
+  switch (code) {
+    case 2:   return {title:'Invalid video id',   msg:'YouTube rejected the video id. Check the link and try again.'};
+    case 5:   return {title:'Player error',       msg:'YouTube could not play this video in the embedded HTML5 player.'};
+    case 100: return {title:'Video unavailable',  msg:'This video was removed or is private.'};
+    case 101:
+    case 150: return {title:'Embedding disabled', msg:'The owner does not allow this video to be played outside YouTube.'};
+    case 153: return {title:'Blocked by YouTube', msg:'YouTube refused the request because the page sent no referer. Open the tool over http(s) instead of a local file.'};
+    default:  return {title:'Playback error',     msg:'YouTube reported error ' + code + '.'};
+  }
+}
+
+// Validates a parsed saved-session snapshot. Returns a normalized copy or null.
+// Anything malformed is dropped rather than trusted.
+function validateSnapshot(raw, maxPovs = 6){
+  if (!raw || typeof raw !== 'object' || raw.v !== 1) return null;
+  if (!Array.isArray(raw.povs) || !raw.povs.length) return null;
+  const povs = [];
+  for (const p of raw.povs) {
+    if (!p || (p.platform !== 'youtube' && p.platform !== 'twitch')) return null;
+    if (typeof p.vid !== 'string' || !p.vid) return null;
+    povs.push({
+      name: (typeof p.name === 'string' && p.name.trim()) ? p.name.trim() : `Player ${povs.length + 1}`,
+      platform: p.platform,
+      vid: p.vid,
+      syncPt: (typeof p.syncPt === 'number' && isFinite(p.syncPt) && p.syncPt >= 0) ? p.syncPt : null,
+      volume: (typeof p.volume === 'number' && p.volume >= 0 && p.volume <= 100) ? p.volume : 100,
+    });
+    if (povs.length >= maxPovs) break;
+  }
+  const markers = (Array.isArray(raw.markers) ? raw.markers : [])
+    .filter(m => m && typeof m.ts === 'number' && isFinite(m.ts) && m.ts >= 0
+      && Number.isInteger(m.pov) && m.pov >= 0 && m.pov < povs.length
+      && typeof m.label === 'string' && /^#[0-9a-f]{6}$/i.test(m.c))
+    .map((m, i) => ({ id: Number.isInteger(m.id) && m.id > 0 ? m.id : i + 1, ts: m.ts, pov: m.pov, label: m.label, c: m.c }))
+    .sort((a, b) => a.ts - b.ts);
+  return {
+    v: 1,
+    savedAt: (typeof raw.savedAt === 'number' && raw.savedAt > 0) ? raw.savedAt : 0,
+    povs,
+    markers,
+    notes: typeof raw.notes === 'string' ? raw.notes : '',
+    active: (Number.isInteger(raw.active) && raw.active >= 0 && raw.active < povs.length) ? raw.active : 0,
+    speed: (typeof raw.speed === 'number' && raw.speed >= 0.25 && raw.speed <= 2) ? raw.speed : 1,
+    lastTime: (typeof raw.lastTime === 'number' && isFinite(raw.lastTime) && raw.lastTime >= 0) ? raw.lastTime : 0,
+  };
+}
+// ── PURE CORE END ──
+
+// ─────────────────────────────────────────────
+// SESSION PERSISTENCE (localStorage)
+//   One snapshot, overwritten on every change. Saved while the review screen
+//   is live; offered back on the setup screen as "Resume session".
+// ─────────────────────────────────────────────
+const SAVE_KEY = 'rewind.session.v1';
+
+function buildSnapshot(){
+  return {
+    v: 1,
+    savedAt: Date.now(),
+    povs: S.povs.map(p => ({ name: p.name, platform: p.platform, vid: p.vid, syncPt: p.syncPt, volume: p.volume })),
+    markers: S.markers.map(m => ({ id: m.id, ts: m.ts, pov: m.pov, label: m.label, c: m.c })),
+    notes: document.getElementById('notes').value,
+    active: S.active,
+    speed: S.speed,
+    lastTime: S.lastKnownT || 0,
+  };
+}
+function saveSession(){
+  if (!S.live || !S.povs.length) return;
+  clearTimeout(S._saveT);
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(buildSnapshot())); S._lastSave = Date.now(); } catch(e) {}
+}
+function saveSoon(){ clearTimeout(S._saveT); S._saveT = setTimeout(saveSession, 400); }
+function loadSaved(){
+  try { return validateSnapshot(JSON.parse(localStorage.getItem(SAVE_KEY)), CHEX.length); } catch(e) { return null; }
+}
+function discardSaved(){
+  try { localStorage.removeItem(SAVE_KEY); } catch(e) {}
+  renderResumeCard();
+  toast('Saved session discarded');
+}
+
+// Setup screen: show the resume card if a snapshot exists, and prefill empty POV cards from it
+function renderResumeCard(){
+  const snap = loadSaved();
+  const card = document.getElementById('resume-card');
+  if (!snap) { card.classList.remove('show'); return; }
+  const bits = [snap.povs.map(p => p.name).join(' · ')];
+  bits.push(snap.markers.length + (snap.markers.length === 1 ? ' marker' : ' markers'));
+  if (snap.notes.trim()) bits.push('notes');
+  if (snap.povs.length > 1 && snap.povs.every(p => p.syncPt !== null)) bits.push('synced');
+  if (snap.lastTime > 0) bits.push('at ' + fmt(snap.lastTime));
+  document.getElementById('resume-meta').textContent = bits.join(' · ');
+  document.getElementById('resume-age').textContent = snap.savedAt ? ageLabel(Date.now() - snap.savedAt) : '';
+  card.classList.add('show');
+  prefillSetup(snap);
+}
+function prefillSetup(snap){
+  const anyFilled = Array.from(document.querySelectorAll('#pov-cards .field')).some(f => f.value.trim());
+  if (anyFilled) return;
+  while (document.querySelectorAll('#pov-cards .pov-card').length < snap.povs.length) addPovCard();
+  const cards = document.querySelectorAll('#pov-cards .pov-card');
+  snap.povs.forEach((p, i) => {
+    if (!cards[i]) return;
+    cards[i].querySelector('.pov-name').value = p.name;
+    cards[i].querySelector('.pov-url').value = watchUrl(p);
+  });
+  document.dispatchEvent(new Event('input', { bubbles: true }));
+}
+function resumeSession(){
+  const snap = loadSaved();
+  if (!snap) { renderResumeCard(); toast('No saved session'); return; }
+  S.povs = snap.povs.map((p, i) => ({ ...p, hex: CHEX[i] }));
+  S.markers = snap.markers;
+  mid = S.markers.reduce((a, m) => Math.max(a, m.id), 0);
+  S.speed = snap.speed;
+  S.lastKnownT = snap.lastTime;
+  S.resumeAt = snap.lastTime > 0 ? snap.lastTime : null;
+  document.getElementById('notes').value = snap.notes;
+  launch(snap.active);
+  toast('Session restored' + (snap.lastTime > 0 ? ' · resuming at ' + fmt(snap.lastTime) : ''));
+}
  
 // ─────────────────────────────────────────────
 // PLAYER ADAPTER — one object per POV, unified interface
@@ -448,16 +644,32 @@ function makePlayer(pov, idx){
   inner.className = 'pov-inner';
   host.appendChild(inner);
  
-  const api = { idx, type: pov.platform, ready:false, _p:null, _host:host };
- 
+  const api = { idx, type: pov.platform, ready:false, error:null, _p:null, _host:host, _errBox:null };
+
+  // Neither platform promises a "failed to load" event, so every player gets a ready deadline.
+  const readyTimer = setTimeout(() => {
+    if (api.ready || api.error) return;
+    failPov(api, 'Player did not load',
+      pov.platform === 'twitch'
+        ? 'Twitch embeds only work over https with a matching parent domain. The VOD may also be deleted, subscriber-only, or still processing.'
+        : 'The YouTube player did not respond. Check the connection or reload the page.',
+      'timeout 20s');
+  }, 20000);
+
   if (pov.platform === 'youtube') {
     api._p = new YT.Player('pl-' + idx, {
       videoId: pov.vid,
       playerVars: {controls:0, disablekb:1, rel:0, modestbranding:1, playsinline:1},
       events: {
         onReady: () => {
+          clearTimeout(readyTimer);
           api.ready = true;
           try { api._p.mute(); } catch(e) {}            // start muted, active gets unmuted later
+        },
+        onError: e => {
+          clearTimeout(readyTimer);
+          const info = ytErrorInfo(e.data);
+          failPov(api, info.title, info.msg, 'youtube error ' + e.data);
         },
         onStateChange: e => {
           if (idx !== S.active) return;
@@ -489,8 +701,19 @@ function makePlayer(pov, idx){
       autoplay: false, muted: true
     });
     api._p.addEventListener(Twitch.Player.READY, () => {
+      clearTimeout(readyTimer);
       api.ready = true;
       try { api._p.setMuted(true); api._p.pause(); } catch(e) {}
+      // Twitch has no error event. A VOD that reports no duration well after READY is
+      // most likely deleted or sub-only. Soft warning: the user can dismiss it.
+      setTimeout(() => {
+        if (api.error) return;
+        if (api.getDuration() <= 0) {
+          failPov(api, 'VOD may be unavailable',
+            'Twitch reports no duration for this video. It may be deleted, subscriber-only, or still processing. If it plays anyway, dismiss this.',
+            'twitch: no duration after ready', true);
+        }
+      }, 15000);
     });
     api._p.addEventListener(Twitch.Player.PLAYING, () => {
       if (idx === S.active) { S.playing = true; setPlayIcon(true); }
@@ -518,6 +741,48 @@ function makePlayer(pov, idx){
   }
   return api;
 }
+
+// ─────────────────────────────────────────────
+// PLAYER ERROR STATE
+//   Overlay on the POV layer (visible only while that POV is active) + a red
+//   mark on its tab and sidebar card. soft = dismissible warning, not a failure.
+// ─────────────────────────────────────────────
+function failPov(api, title, msg, code, soft){
+  if (api.error && !api.error.soft) return;           // keep the first hard error
+  if (api._errBox) { try { api._errBox.remove(); } catch(e) {} }
+  api.error = { title, msg, code, soft: !!soft };
+  const pov = S.povs[api.idx];
+  const box = document.createElement('div');
+  box.className = 'pov-err' + (soft ? ' soft' : '');
+  box.innerHTML = `
+    <div class="pov-err-ico"><i class="ph ${soft ? 'ph-warning' : 'ph-warning-octagon'}"></i></div>
+    <div class="pov-err-title">${esc(pov.name)}: ${esc(title)}</div>
+    <div class="pov-err-msg">${esc(msg)}</div>
+    <div class="pov-err-code">${esc(code)}</div>
+    <div class="pov-err-actions">
+      <a class="btn-ghost" href="${watchUrl(pov)}" target="_blank" rel="noopener">Open on ${pov.platform === 'twitch' ? 'Twitch' : 'YouTube'} ↗</a>
+      ${soft
+        ? `<button class="btn-ghost" onclick="dismissPovError(${api.idx})">Dismiss</button>`
+        : `<button class="btn-ghost" onclick="newSession()">Change links</button>`}
+    </div>`;
+  api._host.appendChild(box);
+  api._errBox = box;
+  markPovError(api.idx, true);
+  toast(`${pov.name}: ${title}`);
+}
+function dismissPovError(idx){
+  const api = S.players[idx];
+  if (!api) return;
+  if (api._errBox) { try { api._errBox.remove(); } catch(e) {} }
+  api._errBox = null; api.error = null;
+  markPovError(idx, false);
+}
+function markPovError(idx, on){
+  const tab = document.getElementById(`pt-${idx}`);
+  const mc = document.getElementById(`mc-${idx}`);
+  if (tab) tab.classList.toggle('err', on);
+  if (mc) mc.classList.toggle('err', on);
+}
  
 // ─────────────────────────────────────────────
 // SETUP
@@ -535,15 +800,30 @@ function startSession() {
     name: r.name, platform: r.src.platform, vid: r.src.vid,
     hex: CHEX[i], syncPt: null, volume: 100
   }));
+  S.markers = []; mid = 0; S.speed = 1;
+  S.lastKnownT = 0; S.resumeAt = null;
+  document.getElementById('notes').value = '';
+  launch(0);
+}
+
+// Shared by startSession (fresh) and resumeSession (restored): S.povs / markers / notes
+// are already in place, this brings up the review screen and the players.
+function launch(activeIdx){
   S.players = [];
-  S.active = 0; S.ready = false; S.markers = []; S.speed = 1; S.playing = false;
+  S.active = activeIdx; S.ready = false; S.playing = false; S.dur = 0;
   S.loopMode = false; S.loopA = null; S.loopB = null; S.notesOpen = false;
- 
+  S.live = true;
+
+  document.getElementById('np').classList.remove('open');
+  document.getElementById('notes-btn').classList.remove('notes-active');
+  document.getElementById('lbtn').classList.remove('loop-on');
+  document.getElementById('tloop').style.display = 'none';
   document.getElementById('setup').style.display = 'none';
   document.getElementById('app').style.display = 'flex';
   buildUI();
   waitAPIs(initPlayers);
- 
+  saveSession();
+
   if (location.protocol === 'file:' && S.povs.some(p => p.platform === 'twitch')) {
     setTimeout(() => toast('Twitch needs http(s). Host on github.io, local file will not load it.'), 1200);
   }
@@ -607,13 +887,14 @@ function buildUI() {
   updateBadge();
   document.getElementById('sync-section').style.display = S.povs.length > 1 ? '' : 'none';
  
-  document.getElementById('vol').value = 100;
-  document.getElementById('vol-ico').textContent = '🔊';
-  document.getElementById('sv').textContent = '1×';
- 
+  const vol0 = S.povs[S.active].volume ?? 100;
+  document.getElementById('vol').value = vol0;
+  document.getElementById('vol-ico').textContent = vol0 === 0 ? '🔇' : vol0 < 50 ? '🔉' : '🔊';
+  document.getElementById('sv').textContent = S.speed + '×';
+
   // POV tabs
   document.getElementById('povtabs').innerHTML = S.povs.map((p, i) =>
-    `<button class="ptab ${i===0?'on':''}" id="pt-${i}" style="${i===0?`border-color:${p.hex};color:${p.hex}`:''}" onclick="switchPov(${i})">${p.name}</button>`
+    `<button class="ptab ${i===S.active?'on':''}" id="pt-${i}" style="${i===S.active?`border-color:${p.hex};color:${p.hex}`:''}" onclick="switchPov(${i})">${p.name}</button>`
   ).join('');
  
   // Mini list — youtube thumbnail, twitch placeholder (no public thumb without API)
@@ -621,7 +902,7 @@ function buildUI() {
     const thumb = p.platform === 'youtube'
       ? `<img class="mc-thumb" src="https://img.youtube.com/vi/${p.vid}/mqdefault.jpg">`
       : `<div class="mc-thumb tw-thumb"><span class="tw-logo">TWITCH</span><span>VOD ${p.vid}</span></div>`;
-    return `<div class="mc" id="mc-${i}" style="${i===0?`border-color:${p.hex}`:''}" onclick="switchPov(${i})">
+    return `<div class="mc" id="mc-${i}" style="${i===S.active?`border-color:${p.hex}`:''}" onclick="switchPov(${i})">
       <div class="mc-head">
         <div class="mc-dot" style="background:${p.hex}"></div>
         <span class="mc-name">${p.name}</span>
@@ -678,15 +959,26 @@ function initPlayers() {
   document.getElementById('stage-players').innerHTML = '';
   S.players = S.povs.map((pov, i) => makePlayer(pov, i));
  
-  // start ticker + unmute active once player 0 is ready
+  // start ticker + unmute active once the active player is ready (or has failed)
+  const ai = S.active;
   (function waitActive(){
-    if (S.players[0] && S.players[0].ready) {
+    const ap = S.players[ai];
+    if (!ap || S.active !== ai) return;                 // session was reset meanwhile
+    if (ap.ready || ap.error) {
       S.ready = true;
       clearInterval(S.ticker);
       S.ticker = setInterval(tick, 250);
-      const vol = S.povs[0].volume ?? 100;
-      S.players[0].setMuted(vol === 0);
-      S.players[0].setVolume(vol);
+      const vol = S.povs[ai].volume ?? 100;
+      ap.setMuted(vol === 0);
+      ap.setVolume(vol);
+      if (S.povs[ai].platform === 'youtube' && S.speed !== 1) ap.setRate(S.speed);
+      if (S.resumeAt !== null && ap.ready) {
+        // restored session: land where the user left off. seekTo starts playback on a
+        // cued YouTube player, so pause right after (same trick switchPov uses).
+        ap.seekTo(S.resumeAt);
+        ap.pause();
+        S.resumeAt = null;
+      }
     } else {
       setTimeout(waitActive, 100);
     }
@@ -703,7 +995,9 @@ function tick() {
     const t = ap.getTime();
     const dur = ap.getDuration();
     S.dur = dur;
- 
+    S.lastKnownT = t;
+    if (Date.now() - S._lastSave > 5000) saveSession();   // keeps lastTime fresh for resume
+
     const pct = dur > 0 ? (t / dur * 100) : 0;
     document.getElementById('tfill').style.width = pct + '%';
     document.getElementById('thead').style.left = pct + '%';
@@ -717,7 +1011,7 @@ function tick() {
       if (p.syncPt === null || activeSync === null) {
         el.textContent = i === S.active ? fmt(t) : '—';
       } else {
-        const thisPovTime = (t - activeSync) + p.syncPt;
+        const thisPovTime = syncShift(t, activeSync, p.syncPt);
         el.textContent = thisPovTime >= 0 ? fmt(thisPovTime) : '—';
       }
     });
@@ -776,6 +1070,7 @@ function chSpd(d) {
   const ap = S.players[S.active];
   if (ap) ap.setRate(S.speed);
   document.getElementById('sv').textContent = S.speed + '×';
+  saveSoon();
 }
  
 // ─────────────────────────────────────────────
@@ -810,7 +1105,7 @@ function switchPov(idx) {
   const currentT = from.getTime();
   const aSync = S.povs[S.active].syncPt;
   const tSync = S.povs[idx].syncPt;
-  let targetT = (aSync !== null && tSync !== null) ? Math.max(0, (currentT - aSync) + tSync) : currentT;
+  let targetT = (aSync !== null && tSync !== null) ? Math.max(0, syncShift(currentT, aSync, tSync)) : currentT;
  
   const wasPlaying = S.playing;
  
@@ -845,6 +1140,8 @@ function switchPov(idx) {
     const mc = document.getElementById(`mc-${i}`);
     if (mc) mc.style.borderColor = i === idx ? p.hex : 'var(--b1)';
   });
+  S.lastKnownT = targetT;
+  saveSoon();
 }
  
 // ─────────────────────────────────────────────
@@ -858,6 +1155,7 @@ function setFlag(idx) {
   const t = ap.getTime();
   S.povs[idx].syncPt = t;
   buildSyncUI();
+  saveSoon();
   toast(`${S.povs[idx].name}: sync point @ ${fmt(t)}`);
   if (S.povs.every(p => p.syncPt !== null)) toast('All set! Press Apply Sync →');
 }
@@ -876,6 +1174,7 @@ function applySync() {
 function clearSync() {
   S.povs.forEach(p => { p.syncPt = null; });
   buildSyncUI();
+  saveSoon();
   toast('Sync cleared');
 }
  
@@ -898,6 +1197,7 @@ function addMarker(tagId) {
   ta.value = ta.value.slice(0, pos) + line + ta.value.slice(pos);
   ta.selectionStart = ta.selectionEnd = pos + line.length;
   ta.focus();
+  saveSoon();
 }
  
 function renderMarkers() {
@@ -938,9 +1238,10 @@ function delMk(e, id) {
   e.stopPropagation();
   S.markers = S.markers.filter(m => m.id !== id);
   renderMarkers();
+  saveSoon();
 }
- 
-function clearMarkers() { S.markers = []; renderMarkers(); }
+
+function clearMarkers() { S.markers = []; renderMarkers(); saveSoon(); }
  
 // ─────────────────────────────────────────────
 // NOTES
@@ -961,6 +1262,7 @@ function insertTs() {
   ta.selectionStart = ta.selectionEnd = pos + ts.length;
   ta.focus();
   if (!S.notesOpen) toggleNotes();
+  saveSoon();
 }
  
 // ─────────────────────────────────────────────
@@ -998,6 +1300,7 @@ function setVol(v) {
   const ap = S.players[S.active];
   if (ap) { ap.setMuted(v === 0); ap.setVolume(v); }
   document.getElementById('vol-ico').textContent = v === 0 ? '🔇' : v < 50 ? '🔉' : '🔊';
+  saveSoon();
 }
  
 function toggleMute() {
@@ -1008,12 +1311,15 @@ function toggleMute() {
   document.getElementById('vol-ico').textContent = next === 0 ? '🔇' : '🔊';
   const ap = S.players[S.active];
   if (ap) { ap.setMuted(next === 0); ap.setVolume(next); }
+  saveSoon();
 }
  
 // ─────────────────────────────────────────────
 // NEW SESSION
 // ─────────────────────────────────────────────
 function newSession() {
+  saveSession();                                       // last write, so the setup screen can offer Resume
+  S.live = false;
   clearInterval(S.ticker);
   (S.players || []).forEach(p => { try { p.destroy(); } catch(e) {} });
   S.players = []; S.ready = false; S.active = 0; S.playing = false;
@@ -1023,16 +1329,12 @@ function newSession() {
   document.getElementById('notes-btn').classList.remove('notes-active');
   document.getElementById('app').style.display = 'none';
   document.getElementById('setup').style.display = 'flex';
+  renderResumeCard();
 }
- 
+
 // ─────────────────────────────────────────────
 // UTILS
 // ─────────────────────────────────────────────
-function fmt(s) {
-  if (s === null || s === undefined || isNaN(s) || s < 0) return '0:00';
-  return Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
-}
- 
 function toast(msg) {
   const el = document.getElementById('toast');
   el.textContent = msg;
@@ -1045,7 +1347,7 @@ function toast(msg) {
 // KEYBOARD
 // ─────────────────────────────────────────────
 document.addEventListener('keydown', e => {
-  if (document.getElementById('app').style.display === 'none') return;
+  if (!S.live) return;
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
   switch(e.key) {
     case ' ': e.preventDefault(); togglePlay(); break;
@@ -1089,6 +1391,14 @@ document.getElementById('app').addEventListener('click', e => {
     setTimeout(reclaimFocus, 50);
   }
 });
+
+// ─────────────────────────────────────────────
+// PERSISTENCE HOOKS
+// ─────────────────────────────────────────────
+document.getElementById('notes').addEventListener('input', saveSoon);
+window.addEventListener('pagehide', () => { if (S.live) saveSession(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden && S.live) saveSession(); });
+renderResumeCard();
 </script>
 </body>
 </html>

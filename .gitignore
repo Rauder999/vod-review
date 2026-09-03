@@ -1,0 +1,2 @@
+# local tooling only (launch configs point at machine-specific paths)
+.claude/
