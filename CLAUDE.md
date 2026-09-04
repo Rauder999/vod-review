@@ -2,25 +2,25 @@
 
 ## What this is
 
-A browser tool for reviewing competitive The Finals matches from multiple player perspectives at once. You paste two or more VOD links (YouTube or Twitch), mark a shared reference moment in each, and then switch between POVs while staying at the same point in the match.
+A browser tool for reviewing competitive matches (any game) from multiple player perspectives at once. It started as a The Finals tool; the September 2026 rebuild removed the game branding. You paste two or more VOD links (YouTube or Twitch), mark a shared reference moment in each, and then switch between POVs while staying at the same point in the match.
 
 Owner: Rauder. Built April 2026, engine rebuilt June 2026, quality-of-life round started September 2026. This file exists so work continues from the current state rather than starting over.
 
 - Repo: `github.com/Rauder999/vod-review`
 - Live: `https://rauder999.github.io/vod-review`
-- Branding: logo reads "Rewind", page title "VOD Review", tagline "Multi-POV sync analysis for competitive teams."
+- Branding: wordmark "Rewind" with a lit dot, page title "Rewind — VOD Review", setup headline "Every perspective, one moment.", eyebrow "Multi-POV match review".
 
 ## Current status
 
-Working and deployed (main = June 2026 build, tagged `v1-june-2026` locally).
+Working and deployed. `main` is the September 2026 build; the June 2026 build is tagged `v1-june-2026` (pushed).
 
-September 2026 round, branch `qol-persistence-errors`, not yet merged or pushed:
+September 2026 round, all merged to `main` and live:
 
-- Session persistence to localStorage (done, merged, live)
-- Error states for videos that fail to load (done, merged, live)
-- Parser, sync math and snapshot tests committed, 63 passing (done, merged, live)
-- Local git workflow with real commit messages instead of web-UI uploads (done)
-- UI rebuild on branch `ui-redesign` (done, awaiting Rauder's palette choice and go-ahead to push). See UI rebuild below.
+- Session persistence to localStorage
+- Error states for videos that fail to load
+- Parser, sync math and snapshot tests committed, 63 passing
+- Local git workflow with real commit messages instead of web-UI uploads
+- Full UI rebuild, game-agnostic, studio palette by default. See UI rebuild below.
 
 ## Architecture
 
@@ -135,8 +135,8 @@ Covers: YouTube and Twitch URL forms, parseSource edge cases, watchUrl round-tri
 
 - Local clone lives at `C:\Users\taksa\My project\Vod-review`. Git Bash is broken on that machine (fork errors); use PowerShell.
 - Local preview: any static server on the repo root. A throwaway Node server plus `.claude/launch.json` are used in sessions; `.claude/` is git-ignored because the launch config points at a machine-specific path.
-- Branch for this round: `qol-persistence-errors`. Merge into `main` and push when Rauder approves; GitHub Pages serves `main`.
-- Push needs Rauder's GitHub credentials; the assistant cannot enter them.
+- Work on a branch, merge into `main` and push when Rauder approves; GitHub Pages serves `main` and rebuilds in about a minute.
+- Push works from Rauder's machine without prompting (Git Credential Manager holds the login).
 
 **The filename must be lowercase `index.html`.** A capital `Index.html` produced a 404 because GitHub Pages runs on Linux and is case-sensitive. This has bitten this project once already.
 
@@ -145,26 +145,25 @@ Covers: YouTube and Twitch URL forms, parseSource edge cases, watchUrl round-tri
 - No mobile or narrow-viewport handling. `html,body{overflow:hidden}` and the fixed layout assume desktop.
 - Only one saved session at a time. Starting a new session overwrites the previous snapshot.
 - Region-locked YouTube videos do not raise `onError`; YouTube shows its own message inside the iframe and the tool only notices via the 20 s deadline if the player never reports ready.
-- Branding assets are hotlinked from a third-party CDN (see Architecture).
 - All CSS and JS live in one file with no separation, which is fine at this size but makes review harder as it grows.
 
 ## UI rebuild (September 2026)
 
 **Concept: a control room.** POVs are cameras, labelled CAM 1 to 6 everywhere (setup cards, cam buttons under the timeline, the stage badge, multiview chips, the export). The active camera carries a tally: coloured ring, lit dot, glow. A failed camera gets a struck-through name and a red mark. Timecode is monospaced with tabular numerals.
 
-**Palettes.** Three, switched by `data-palette` on `<html>` and stored in `localStorage` under `rewind.palette`. Component CSS reads only tokens, so a palette is a pure token swap. Swatches live in the setup footer. Default is `signal` until Rauder picks.
+**Palettes.** Three, switched by `data-palette` on `<html>` and stored in `localStorage` under `rewind.palette`. Component CSS reads only tokens, so a palette is a pure token swap. Swatches live in the setup footer. Rauder picked `studio` on 2026-09-04; it is the bare `:root` block and the first entry of `PALETTES`. The other two stay available through the swatches; drop them by deleting their `:root[data-palette]` blocks, their swatch buttons and their names in `PALETTES`.
 
 ```
-signal  (default)  bg #0b0c0f  s1 #111318  s2 #171a20  s3 #1f232b  tx #eef0f4  t2 #9aa1b0  accent #f2b544 (amber)
+studio  (default)  bg #0e0d10  s1 #151317  s2 #1b191e  s3 #242127  tx #f3eff6  t2 #a59db2  accent #c4a6ff (lilac)
+signal             bg #0b0c0f  s1 #111318  s2 #171a20  s3 #1f232b  tx #eef0f4  t2 #9aa1b0  accent #f2b544 (amber)
 monitor            bg #090c12  s1 #0f131b  s2 #151a24  s3 #1c2330  tx #edf2fa  t2 #94a3bd  accent #7cc4ff (ice blue)
-studio             bg #0e0d10  s1 #151317  s2 #1b191e  s3 #242127  tx #f3eff6  t2 #a59db2  accent #c4a6ff (lilac)
-semantic (all)     ok #3fd18f  warn = accent  bad #ff5d5d
+semantic (all)     ok #3fd18f  warn #f2b544  bad #ff5d5d
 POV colours (CHEX) #4f9cf9 #3fd18f #ff7a59 #b48cff #ff8fc2 #33d3cc
 tag colours        mistake #ff5d5d  good #3fd18f  rotation #4f9cf9  comms #33d3cc  note #b48cff
 radii              --r 10px  --r2 7px  --r3 4px, pills are 999px
 ```
 
-POV colours deliberately avoid yellow so the amber accent never collides with a camera. Tag colours are stored inside saved markers as hex, so changing them only affects new markers.
+POV colours deliberately avoid yellow (so the signal amber never collides with a camera) and the lilac CAM 4 `#b48cff` sits close to the studio accent; if that ever reads as confusing, swap CAM 4 for a different hue rather than touching the accent. Tag colours are stored inside saved markers as hex, so changing them only affects new markers. The exported HTML report is hard-coded to the studio colours.
 
 **Type.** Bricolage Grotesque 700 for the wordmark and overlay titles only. Instrument Sans for UI. JetBrains Mono for timecode, eyebrows, chips and `kbd`.
 
@@ -182,8 +181,8 @@ The engine works. Do not rewrite the adapter model or the sync math to make the 
 
 ## Next up
 
-1. Rauder picks a palette (signal, monitor or studio) and says whether to keep the switcher. Then merge `ui-redesign` into `main` and push.
-2. Check a real Twitch VOD on the github.io page after the push (Twitch cannot be tested from localhost over http).
+1. Rauder checks the live rebuild, including a real Twitch VOD on the github.io page (Twitch cannot be tested from localhost over http).
+2. Decide whether to keep the palette switcher or lock studio only.
 
 Other quality-of-life candidates worth raising with Rauder, not yet approved: renaming POVs mid-session, reordering cameras, jumping between markers with a key, undo for a deleted note, more than one saved session, a grid view showing all cameras at once.
 

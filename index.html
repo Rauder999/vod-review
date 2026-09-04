@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-palette="signal">
+<html lang="en" data-palette="studio">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -15,31 +15,33 @@
    CSS only ever reads tokens, so a palette is a pure token swap.
    ═══════════════════════════════════════════════════════════════ */
 :root {
-  /* Signal: graphite with a cool bias, amber tally accent (default) */
-  --bg:#0b0c0f; --s1:#111318; --s2:#171a20; --s3:#1f232b; --s4:#282d37;
-  --line:rgba(255,255,255,.07); --line2:rgba(255,255,255,.12); --line3:rgba(255,255,255,.22);
-  --tx:#eef0f4; --t2:#9aa1b0; --t3:#5f6675;
-  --ac:#f2b544; --ac-ink:#1c1303; --ac-soft:rgba(242,181,68,.14); --ac-line:rgba(242,181,68,.4);
+  /* Studio: warm charcoal, lilac accent (default, Rauder's pick) */
+  --bg:#0e0d10; --s1:#151317; --s2:#1b191e; --s3:#242127; --s4:#2e2a32;
+  --line:rgba(255,235,250,.07); --line2:rgba(255,235,250,.12); --line3:rgba(255,235,250,.22);
+  --tx:#f3eff6; --t2:#a59db2; --t3:#665e73;
+  --ac:#c4a6ff; --ac-ink:#160b2a; --ac-soft:rgba(196,166,255,.14); --ac-line:rgba(196,166,255,.4);
   --ok:#3fd18f; --warn:#f2b544; --bad:#ff5d5d;
-  --glow:0 0 0 1px rgba(242,181,68,.35), 0 0 24px rgba(242,181,68,.18);
+  --glow:0 0 0 1px rgba(196,166,255,.35), 0 0 24px rgba(196,166,255,.18);
   --font-ui:'Instrument Sans', 'Segoe UI', system-ui, sans-serif;
   --font-display:'Bricolage Grotesque', 'Instrument Sans', system-ui, sans-serif;
   --font-mono:'JetBrains Mono', 'Cascadia Mono', Consolas, monospace;
   --r:10px; --r2:7px; --r3:4px;
 }
+:root[data-palette="signal"] {
+  /* Signal: graphite with a cool bias, amber tally accent */
+  --bg:#0b0c0f; --s1:#111318; --s2:#171a20; --s3:#1f232b; --s4:#282d37;
+  --line:rgba(255,255,255,.07); --line2:rgba(255,255,255,.12); --line3:rgba(255,255,255,.22);
+  --tx:#eef0f4; --t2:#9aa1b0; --t3:#5f6675;
+  --ac:#f2b544; --ac-ink:#1c1303; --ac-soft:rgba(242,181,68,.14); --ac-line:rgba(242,181,68,.4);
+  --glow:0 0 0 1px rgba(242,181,68,.35), 0 0 24px rgba(242,181,68,.18);
+}
 :root[data-palette="monitor"] {
+  /* Monitor: slate blue, ice accent */
   --bg:#090c12; --s1:#0f131b; --s2:#151a24; --s3:#1c2330; --s4:#252e3d;
   --line:rgba(160,200,255,.08); --line2:rgba(160,200,255,.14); --line3:rgba(160,200,255,.24);
   --tx:#edf2fa; --t2:#94a3bd; --t3:#5a6a85;
   --ac:#7cc4ff; --ac-ink:#04131f; --ac-soft:rgba(124,196,255,.14); --ac-line:rgba(124,196,255,.4);
   --glow:0 0 0 1px rgba(124,196,255,.35), 0 0 24px rgba(124,196,255,.18);
-}
-:root[data-palette="studio"] {
-  --bg:#0e0d10; --s1:#151317; --s2:#1b191e; --s3:#242127; --s4:#2e2a32;
-  --line:rgba(255,235,250,.07); --line2:rgba(255,235,250,.12); --line3:rgba(255,235,250,.22);
-  --tx:#f3eff6; --t2:#a59db2; --t3:#665e73;
-  --ac:#c4a6ff; --ac-ink:#160b2a; --ac-soft:rgba(196,166,255,.14); --ac-line:rgba(196,166,255,.4);
-  --glow:0 0 0 1px rgba(196,166,255,.35), 0 0 24px rgba(196,166,255,.18);
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -278,7 +280,7 @@ textarea::placeholder{color:var(--t3)}
 .pov-err.soft{background:rgba(8,9,12,.8)}
 .pov-err-ico{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(255,93,93,.14);color:var(--bad);margin-bottom:4px}
 .pov-err-ico .ico{width:22px;height:22px}
-.pov-err.soft .pov-err-ico{background:var(--ac-soft);color:var(--warn)}
+.pov-err.soft .pov-err-ico{background:rgba(242,181,68,.14);color:var(--warn)}
 .pov-err-title{font-size:16px;font-weight:600;font-family:var(--font-display)}
 .pov-err-msg{font-size:12.5px;color:var(--t2);max-width:420px;line-height:1.55;text-wrap:pretty}
 .pov-err-code{font-family:var(--font-mono);font-size:10px;color:var(--t3)}
@@ -359,9 +361,9 @@ textarea::placeholder{color:var(--t3)}
     <footer class="setup-foot">
       <div class="swatches">
         <span class="eyebrow">Theme</span>
+        <button class="sw" data-palette="studio" title="Studio" style="--sw-a:#0e0d10;--sw-b:#c4a6ff" onclick="setPalette('studio')"><i></i></button>
         <button class="sw" data-palette="signal" title="Signal" style="--sw-a:#0b0c0f;--sw-b:#f2b544" onclick="setPalette('signal')"><i></i></button>
         <button class="sw" data-palette="monitor" title="Monitor" style="--sw-a:#090c12;--sw-b:#7cc4ff" onclick="setPalette('monitor')"><i></i></button>
-        <button class="sw" data-palette="studio" title="Studio" style="--sw-a:#0e0d10;--sw-b:#c4a6ff" onclick="setPalette('studio')"><i></i></button>
       </div>
       <span>Sessions are saved in this browser only.</span>
     </footer>
@@ -489,7 +491,7 @@ const TAGS = [
   {id:'comms',   label:'Comms',     c:'#33d3cc'},
   {id:'note',    label:'Note',      c:'#b48cff'},
 ];
-const PALETTES = ['signal','monitor','studio'];
+const PALETTES = ['studio','signal','monitor'];   // first one is the default
 
 // ─────────────────────────────────────────────
 // STATE
@@ -671,13 +673,13 @@ function validateSnapshot(raw, maxPovs = 6){
 // THEME (palette swatches on the setup screen)
 // ─────────────────────────────────────────────
 function setPalette(name){
-  if (!PALETTES.includes(name)) name = 'signal';
+  if (!PALETTES.includes(name)) name = PALETTES[0];
   document.documentElement.dataset.palette = name;
   document.querySelectorAll('.sw').forEach(b => b.classList.toggle('on', b.dataset.palette === name));
   try { localStorage.setItem('rewind.palette', name); } catch(e) {}
 }
 (function initPalette(){
-  let p = 'signal';
+  let p = PALETTES[0];
   try { p = localStorage.getItem('rewind.palette') || p; } catch(e) {}
   setPalette(p);
 })();
@@ -1442,9 +1444,9 @@ function exportHTML() {
   const mkRows = S.markers.map(m =>
     `<tr><td style="color:${m.c};font-family:monospace">${fmt(m.ts)}</td><td><span style="background:${m.c}22;color:${m.c};padding:2px 8px;border-radius:10px;font-size:11px">${esc(m.label)}</span></td><td>${esc(S.povs[m.pov]?.name||'')}</td></tr>`
   ).join('');
-  const notesHtml = esc(notes).replace(/\[([^\]]+)\]/g, '<span style="color:#f2b544;font-weight:600">[$1]</span>').replace(/\n/g, '<br>');
+  const notesHtml = esc(notes).replace(/\[([^\]]+)\]/g, '<span style="color:#c4a6ff;font-weight:600">[$1]</span>').replace(/\n/g, '<br>');
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Rewind Report</title>
-<style>body{font-family:system-ui,sans-serif;background:#0b0c0f;color:#eef0f4;max-width:760px;margin:0 auto;padding:40px 24px}h1{font-size:28px;font-weight:700;margin-bottom:4px}h1 span{color:#f2b544}.meta{color:#6b7280;font-size:13px;margin-bottom:32px}.sec{background:#111318;border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:20px;margin-bottom:16px}.sec h2{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:#5f6675;margin-bottom:14px;font-family:monospace}.pr{display:flex;align-items:center;gap:10px;margin-bottom:8px}.dot{width:8px;height:8px;border-radius:50%}.pn{font-weight:600}.pu{color:#f2b544;font-size:12px;font-family:monospace;text-decoration:none}.plat{font-family:monospace;font-size:10px;padding:1px 6px;border-radius:5px;background:rgba(255,255,255,.06);color:#9aa1b0}.po{color:#6b7280;font-size:12px;font-family:monospace;margin-left:auto}table{width:100%;border-collapse:collapse}td,th{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px;text-align:left}th{color:#5f6675;font-size:11px;text-transform:uppercase;font-weight:600}.nc{font-family:monospace;font-size:12px;line-height:1.8;color:#c6cad4}</style>
+<style>body{font-family:system-ui,sans-serif;background:#0e0d10;color:#f3eff6;max-width:760px;margin:0 auto;padding:40px 24px}h1{font-size:28px;font-weight:700;margin-bottom:4px}h1 span{color:#c4a6ff}.meta{color:#7a7287;font-size:13px;margin-bottom:32px}.sec{background:#151317;border:1px solid rgba(255,235,250,.07);border-radius:10px;padding:20px;margin-bottom:16px}.sec h2{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:#665e73;margin-bottom:14px;font-family:monospace}.pr{display:flex;align-items:center;gap:10px;margin-bottom:8px}.dot{width:8px;height:8px;border-radius:50%}.pn{font-weight:600}.pu{color:#c4a6ff;font-size:12px;font-family:monospace;text-decoration:none}.plat{font-family:monospace;font-size:10px;padding:1px 6px;border-radius:5px;background:rgba(255,235,250,.06);color:#a59db2}.po{color:#7a7287;font-size:12px;font-family:monospace;margin-left:auto}table{width:100%;border-collapse:collapse}td,th{padding:8px 10px;border-bottom:1px solid rgba(255,235,250,.05);font-size:13px;text-align:left}th{color:#665e73;font-size:11px;text-transform:uppercase;font-weight:600}.nc{font-family:monospace;font-size:12px;line-height:1.8;color:#cfc8d6}</style>
 </head><body>
 <h1>Re<span>wind</span></h1>
 <div class="meta">${date} · ${S.povs.map(p=>esc(p.name)).join(', ')}</div>
